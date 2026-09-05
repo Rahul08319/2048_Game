@@ -2,7 +2,7 @@ import { Keyboard, Smartphone } from 'lucide-react';
 
 export const Instructions = () => {
   return (
-    <div className="mt-6 max-w-[464px] text-center">
+    <div className="playable-instructions mt-4 max-w-[464px] text-center sm:mt-6">
       <div className="flex items-center justify-center gap-6 text-muted-foreground">
         <div className="flex items-center gap-2">
           <Keyboard className="w-5 h-5" />
@@ -11,7 +11,7 @@ export const Instructions = () => {
         <div className="w-px h-4 bg-border" />
         <div className="flex items-center gap-2">
           <Smartphone className="w-5 h-5" />
-          <span className="text-sm">Swipe to move</span>
+          <span className="text-sm">Drag or swipe</span>
         </div>
       </div>
       <p className="mt-4 text-sm text-muted-foreground/80">

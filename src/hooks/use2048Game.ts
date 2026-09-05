@@ -1,4 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  configurePlayables,
+  loadPlayablesSave,
+  notifyPlayableIsReady,
+  reportBestScore,
+  reportPlayablesHealth,
+  savePlayablesData,
+} from "@/lib/playables";
+import { playMoveSound } from "@/lib/gameAudio";
 
 export type Tile = {
   id: number;
@@ -8,186 +17,257 @@ export type Tile = {
   isMerged?: boolean;
 };
 
-type Direction = 'up' | 'down' | 'left' | 'right';
+export type Direction = "up" | "down" | "left" | "right";
 
+type GameState = {
+  tiles: Tile[];
+  score: number;
+  bestScore: number;
+  nextId: number;
+  gameOver: boolean;
+  hasWon: boolean;
+};
+
+type SavedGame = GameState & { version: 1 };
 const GRID_SIZE = 4;
 
-export const use2048Game = () => {
-  const [tiles, setTiles] = useState<Tile[]>([]);
-  const [score, setScore] = useState(0);
-  const [bestScore, setBestScore] = useState(() => {
-    const saved = localStorage.getItem('2048-best-score');
-    return saved ? parseInt(saved, 10) : 0;
-  });
-  const [gameOver, setGameOver] = useState(false);
-  const [nextId, setNextId] = useState(0);
-
-  const createTile = useCallback((position: { row: number; col: number }, value: number = Math.random() < 0.9 ? 2 : 4): Tile => {
-    const id = nextId;
-    setNextId(prev => prev + 1);
-    return { id, value, position, isNew: true };
-  }, [nextId]);
-
-  const getEmptyPositions = useCallback((currentTiles: Tile[]) => {
-    const occupied = new Set(currentTiles.map(t => `${t.position.row},${t.position.col}`));
-    const empty: { row: number; col: number }[] = [];
-    for (let row = 0; row < GRID_SIZE; row++) {
-      for (let col = 0; col < GRID_SIZE; col++) {
-        if (!occupied.has(`${row},${col}`)) {
-          empty.push({ row, col });
-        }
-      }
+function emptyPositions(tiles: Tile[]) {
+  const occupied = new Set(tiles.map((tile) => `${tile.position.row},${tile.position.col}`));
+  const empty: Array<{ row: number; col: number }> = [];
+  for (let row = 0; row < GRID_SIZE; row += 1) {
+    for (let col = 0; col < GRID_SIZE; col += 1) {
+      if (!occupied.has(`${row},${col}`)) empty.push({ row, col });
     }
-    return empty;
+  }
+  return empty;
+}
+
+function addRandomTile(tiles: Tile[], nextId: number) {
+  const empty = emptyPositions(tiles);
+  if (!empty.length) return { tiles, nextId };
+  const position = empty[Math.floor(Math.random() * empty.length)];
+  return {
+    tiles: [...tiles, { id: nextId, value: Math.random() < 0.9 ? 2 : 4, position, isNew: true }],
+    nextId: nextId + 1,
+  };
+}
+
+function canMove(tiles: Tile[]) {
+  if (tiles.length < GRID_SIZE * GRID_SIZE) return true;
+  const cells = new Map(tiles.map((tile) => [`${tile.position.row},${tile.position.col}`, tile.value]));
+  for (let row = 0; row < GRID_SIZE; row += 1) {
+    for (let col = 0; col < GRID_SIZE; col += 1) {
+      const value = cells.get(`${row},${col}`);
+      if (value === cells.get(`${row + 1},${col}`) || value === cells.get(`${row},${col + 1}`)) return true;
+    }
+  }
+  return false;
+}
+
+function newGame(bestScore: number): GameState {
+  const first = addRandomTile([], 0);
+  const second = addRandomTile(first.tiles, first.nextId);
+  return { tiles: second.tiles, score: 0, bestScore, nextId: second.nextId, gameOver: false, hasWon: false };
+}
+
+function lineCoordinates(direction: Direction, line: number) {
+  const coordinates: Array<{ row: number; col: number }> = [];
+  for (let offset = 0; offset < GRID_SIZE; offset += 1) {
+    if (direction === "left") coordinates.push({ row: line, col: offset });
+    if (direction === "right") coordinates.push({ row: line, col: GRID_SIZE - 1 - offset });
+    if (direction === "up") coordinates.push({ row: offset, col: line });
+    if (direction === "down") coordinates.push({ row: GRID_SIZE - 1 - offset, col: line });
+  }
+  return coordinates;
+}
+
+function applyMove(game: GameState, direction: Direction) {
+  const byPosition = new Map(game.tiles.map((tile) => [`${tile.position.row},${tile.position.col}`, tile]));
+  const tiles: Tile[] = [];
+  let nextId = game.nextId;
+  let gained = 0;
+  let moved = false;
+
+  for (let line = 0; line < GRID_SIZE; line += 1) {
+    const coordinates = lineCoordinates(direction, line);
+    const existing = coordinates.map(({ row, col }) => byPosition.get(`${row},${col}`)).filter((tile): tile is Tile => Boolean(tile));
+    for (let source = 0, destination = 0; source < existing.length; destination += 1) {
+      const current = existing[source];
+      const merge = existing[source + 1]?.value === current.value;
+      const target = coordinates[destination];
+      const movedTile: Tile = {
+        ...current,
+        id: merge ? nextId++ : current.id,
+        value: merge ? current.value * 2 : current.value,
+        position: target,
+        isNew: false,
+        isMerged: merge,
+      };
+      if (merge) {
+        gained += movedTile.value;
+        source += 2;
+      } else source += 1;
+      if (merge || current.position.row !== target.row || current.position.col !== target.col) moved = true;
+      tiles.push(movedTile);
+    }
+  }
+  return { tiles, nextId, gained, moved };
+}
+
+function isSavedGame(value: unknown): value is SavedGame {
+  if (!value || typeof value !== "object") return false;
+  const saved = value as Partial<SavedGame>;
+  if (!Array.isArray(saved.tiles) || !Number.isFinite(saved.score) || !Number.isFinite(saved.bestScore)
+    || !Number.isInteger(saved.nextId) || typeof saved.gameOver !== "boolean" || typeof saved.hasWon !== "boolean") return false;
+  const occupied = new Set<string>();
+  return saved.tiles.every((tile) => {
+    const valid = tile && Number.isInteger(tile.id) && Number.isInteger(tile.value) && tile.value > 0
+      && Number.isInteger(tile.position?.row) && tile.position.row >= 0 && tile.position.row < GRID_SIZE
+      && Number.isInteger(tile.position?.col) && tile.position.col >= 0 && tile.position.col < GRID_SIZE;
+    const key = valid ? `${tile.position.row},${tile.position.col}` : "invalid";
+    if (occupied.has(key)) return false;
+    occupied.add(key);
+    return valid;
+  });
+}
+
+function serializeGame(game: GameState): string {
+  return JSON.stringify({ version: 1, ...game } satisfies SavedGame);
+}
+
+export const use2048Game = () => {
+  const [game, setGame] = useState<GameState>(() => newGame(0));
+  const [ready, setReady] = useState(false);
+  const [pausedByHost, setPausedByHost] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [locale, setLocale] = useState("en-US");
+  const gameRef = useRef(game);
+  const pausedRef = useRef(false);
+
+  const commitGame = useCallback((next: GameState) => {
+    gameRef.current = next;
+    setGame(next);
+    savePlayablesData(serializeGame(next));
   }, []);
 
-  const addRandomTile = useCallback((currentTiles: Tile[]) => {
-    const empty = getEmptyPositions(currentTiles);
-    if (empty.length === 0) return currentTiles;
-    const randomPos = empty[Math.floor(Math.random() * empty.length)];
-    return [...currentTiles, createTile(randomPos)];
-  }, [getEmptyPositions, createTile]);
+  useEffect(() => {
+    let active = true;
+    let cleanup = () => undefined;
 
-  const initGame = useCallback(() => {
-    setScore(0);
-    setGameOver(false);
-    setNextId(0);
-    const tile1 = { id: 0, value: 2, position: { row: Math.floor(Math.random() * 4), col: Math.floor(Math.random() * 4) }, isNew: true };
-    setNextId(1);
-    const empty = getEmptyPositions([tile1]);
-    const randomPos = empty[Math.floor(Math.random() * empty.length)];
-    const tile2 = { id: 1, value: 2, position: randomPos, isNew: true };
-    setNextId(2);
-    setTiles([tile1, tile2]);
-  }, [getEmptyPositions]);
+    const initialize = async () => {
+      const raw = await loadPlayablesSave();
+      let loaded: GameState | null = null;
+      if (raw) {
+        try {
+          const saved = JSON.parse(raw);
+          if (isSavedGame(saved)) {
+            loaded = {
+              ...saved,
+              tiles: saved.tiles.map((tile) => ({ ...tile, isNew: false, isMerged: false })),
+              gameOver: saved.gameOver || !canMove(saved.tiles),
+              hasWon: saved.hasWon || saved.tiles.some((tile) => tile.value >= 2048),
+              bestScore: Math.max(saved.bestScore, saved.score),
+            };
+          } else reportPlayablesHealth("warning");
+        } catch {
+          reportPlayablesHealth("warning");
+        }
+      }
+
+      if (!active) {
+        cleanup();
+        return;
+      }
+      const next = loaded ?? newGame(0);
+      gameRef.current = next;
+      setGame(next);
+      cleanup = await configurePlayables({
+        onAudioEnabledChange: (enabled) => {
+          if (active) setAudioEnabled(enabled);
+        },
+        onPause: () => {
+          pausedRef.current = true;
+          if (active) setPausedByHost(true);
+          savePlayablesData(serializeGame(gameRef.current));
+        },
+        onResume: () => {
+          pausedRef.current = false;
+          if (active) setPausedByHost(false);
+        },
+        onLanguage: (language) => {
+          if (active) {
+            setLocale(language);
+            document.documentElement.lang = language;
+          }
+        },
+      });
+      if (!active) {
+        cleanup();
+        return;
+      }
+      if (!loaded) savePlayablesData(serializeGame(next));
+      setReady(true);
+    };
+
+    void initialize();
+    return () => {
+      active = false;
+      cleanup();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    const frame = window.requestAnimationFrame(notifyPlayableIsReady);
+    return () => window.cancelAnimationFrame(frame);
+  }, [ready]);
+
+  useEffect(() => {
+    const renderText = () => JSON.stringify({
+      coordinateSystem: "rows increase top-to-bottom and columns increase left-to-right",
+      mode: pausedByHost ? "paused" : game.gameOver ? "game-over" : "playing",
+      board: game.tiles.map((tile) => ({ row: tile.position.row, col: tile.position.col, value: tile.value })),
+      score: game.score,
+      bestScore: game.bestScore,
+      reached2048: game.hasWon,
+      audioEnabled,
+      controls: "Arrow keys or swipe to move; R restarts; F toggles fullscreen",
+    });
+    const advanceTime = () => undefined;
+    window.render_game_to_text = renderText;
+    window.advanceTime = advanceTime;
+    return () => {
+      if (window.render_game_to_text === renderText) delete window.render_game_to_text;
+      if (window.advanceTime === advanceTime) delete window.advanceTime;
+    };
+  }, [audioEnabled, game, pausedByHost]);
 
   const move = useCallback((direction: Direction) => {
-    if (gameOver) return;
+    if (!ready || pausedRef.current || gameRef.current.gameOver) return;
+    const previousBest = gameRef.current.bestScore;
+    const result = applyMove(gameRef.current, direction);
+    if (!result.moved) return;
 
-    setTiles(currentTiles => {
-      // Clear animation flags
-      const cleanTiles = currentTiles.map(t => ({ ...t, isNew: false, isMerged: false }));
-      
-      // Create grid
-      const grid: (Tile | null)[][] = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
-      cleanTiles.forEach(tile => {
-        grid[tile.position.row][tile.position.col] = tile;
-      });
+    const withRandomTile = addRandomTile(result.tiles, result.nextId);
+    const score = gameRef.current.score + result.gained;
+    const bestScore = Math.max(previousBest, score);
+    const next: GameState = {
+      tiles: withRandomTile.tiles,
+      nextId: withRandomTile.nextId,
+      score,
+      bestScore,
+      gameOver: !canMove(withRandomTile.tiles),
+      hasWon: gameRef.current.hasWon || withRandomTile.tiles.some((tile) => tile.value >= 2048),
+    };
+    commitGame(next);
+    playMoveSound(audioEnabled, result.gained > 0);
+    if (bestScore > previousBest) reportBestScore(bestScore);
+  }, [audioEnabled, commitGame, ready]);
 
-      let newTiles: Tile[] = [];
-      let newScore = score;
-      let moved = false;
+  const restart = useCallback(() => {
+    if (!ready || pausedRef.current) return;
+    commitGame(newGame(gameRef.current.bestScore));
+  }, [commitGame, ready]);
 
-      const processLine = (line: (Tile | null)[]) => {
-        const nonEmpty = line.filter(t => t !== null) as Tile[];
-        const merged: Tile[] = [];
-        let i = 0;
-
-        while (i < nonEmpty.length) {
-          if (i < nonEmpty.length - 1 && nonEmpty[i].value === nonEmpty[i + 1].value) {
-            const mergedTile = { ...nonEmpty[i], value: nonEmpty[i].value * 2, isMerged: true };
-            merged.push(mergedTile);
-            newScore += mergedTile.value;
-            i += 2;
-          } else {
-            merged.push(nonEmpty[i]);
-            i++;
-          }
-        }
-
-        return merged;
-      };
-
-      if (direction === 'left' || direction === 'right') {
-        for (let row = 0; row < GRID_SIZE; row++) {
-          let line = grid[row];
-          if (direction === 'right') line = [...line].reverse();
-          
-          const processed = processLine(line);
-          if (direction === 'right') processed.reverse();
-
-          for (let col = 0; col < GRID_SIZE; col++) {
-            if (processed[col]) {
-              const tile = { ...processed[col], position: { row, col } };
-              if (tile.position.row !== processed[col].position.row || 
-                  tile.position.col !== processed[col].position.col) {
-                moved = true;
-              }
-              newTiles.push(tile);
-            }
-          }
-        }
-      } else {
-        for (let col = 0; col < GRID_SIZE; col++) {
-          let line = grid.map(row => row[col]);
-          if (direction === 'down') line = [...line].reverse();
-          
-          const processed = processLine(line);
-          if (direction === 'down') processed.reverse();
-
-          for (let row = 0; row < GRID_SIZE; row++) {
-            if (processed[row]) {
-              const tile = { ...processed[row], position: { row, col } };
-              if (tile.position.row !== processed[row].position.row || 
-                  tile.position.col !== processed[row].position.col) {
-                moved = true;
-              }
-              newTiles.push(tile);
-            }
-          }
-        }
-      }
-
-      if (!moved) return currentTiles;
-
-      setScore(newScore);
-      if (newScore > bestScore) {
-        setBestScore(newScore);
-        localStorage.setItem('2048-best-score', newScore.toString());
-      }
-
-      return addRandomTile(newTiles);
-    });
-  }, [gameOver, score, bestScore, addRandomTile]);
-
-  const checkGameOver = useCallback((currentTiles: Tile[]) => {
-    if (getEmptyPositions(currentTiles).length > 0) return false;
-
-    // Check if any adjacent tiles can merge
-    const grid: (number | null)[][] = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
-    currentTiles.forEach(tile => {
-      grid[tile.position.row][tile.position.col] = tile.value;
-    });
-
-    for (let row = 0; row < GRID_SIZE; row++) {
-      for (let col = 0; col < GRID_SIZE; col++) {
-        const value = grid[row][col];
-        if (value === null) continue;
-        
-        if (col < GRID_SIZE - 1 && grid[row][col + 1] === value) return false;
-        if (row < GRID_SIZE - 1 && grid[row + 1][col] === value) return false;
-      }
-    }
-
-    return true;
-  }, [getEmptyPositions]);
-
-  useEffect(() => {
-    if (tiles.length > 0 && checkGameOver(tiles)) {
-      setGameOver(true);
-    }
-  }, [tiles, checkGameOver]);
-
-  useEffect(() => {
-    initGame();
-  }, []);
-
-  return {
-    tiles,
-    score,
-    bestScore,
-    gameOver,
-    move,
-    restart: initGame,
-  };
+  return { ...game, move, restart, ready, pausedByHost, audioEnabled, locale };
 };

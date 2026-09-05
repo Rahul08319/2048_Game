@@ -83,6 +83,34 @@ All colors MUST be HSL.
   }
 }
 
+.playable-shell {
+  min-height: 100svh;
+  padding: clamp(0.75rem, 3vw, 2rem);
+}
+
+.playable-board {
+  width: min(92vw, 64svh, 29rem);
+  container-type: inline-size;
+}
+
+@media (orientation: landscape) and (max-height: 640px) {
+  .playable-shell {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 0.75rem;
+  }
+
+  .playable-heading, .playable-instructions { display: none; }
+
+  .playable-board { width: min(72svh, 56vw, 29rem); }
+
+  .playable-scoreboard {
+    width: min(28vw, 13rem);
+    flex-direction: column;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
