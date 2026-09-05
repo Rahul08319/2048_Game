@@ -9,3 +9,4 @@ Original prompt: https://github.com/Rahul08319/twenty-forty-eight-dash.git - add
 - Validation note: `npm ci` could not complete in this workspace (it remained network-stalled and was cancelled), so a dependency-backed Vite build/browser run still needs to be repeated once dependencies are available.
 - `git diff --check` and a static audit of all requested SDK APIs passed; the audit also confirmed that no interstitial, rewarded, or other ads API is present in `src`.
 - Updated the board from fixed 464px tiles to a responsive container-based grid, with compact landscape presentation and mouse-drag input. Moved Playables listener setup until after cloud-save loading completes, as required to prevent an early save from overwriting progress.
+- Added an undo snapshot (button/U), reproducible daily mode with a 128 target and saved streak, and a 120-second Dash timer. Both new modes and streak state are included in the Playables save payload and text test state.

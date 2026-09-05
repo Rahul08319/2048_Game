@@ -15,7 +15,7 @@ export const Instructions = () => {
         </div>
       </div>
       <p className="mt-4 text-sm text-muted-foreground/80">
-        Combine tiles with the same number to reach <span className="font-bold text-primary">2048</span>!
+        Use <span className="font-bold text-primary">U</span> to undo, <span className="font-bold text-primary">R</span> to restart, and <span className="font-bold text-primary">F</span> for fullscreen.
       </p>
     </div>
   );
