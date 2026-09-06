@@ -18,3 +18,6 @@ Original prompt: https://github.com/Rahul08319/twenty-forty-eight-dash.git - add
 - The official browser Test Suite and Vite build could not be executed on this machine: `node_modules` is absent, `npm ci` cannot restore the lockfile dependencies (including in offline mode), and `npm run build` reports that `vite` is unavailable. Repeat the live test once dependencies are available, using `http://localhost:8080` in the hosted Test Suite.
 
 - Extended the Playables hardening: a visible loading state now triggers `firstFrameReady` before `gameReady`; saves are UTF-16/3 MiB guarded and serialized; audio stops on host pause; the single-page game no longer relies on a host URL path; the 2048 win condition is announced in an accessible dismissible dialog; and the board exposes an accessible state label.
+
+- Refreshed the visual direction to a midnight-arcade treatment with improved hierarchy, score-panel depth, responsive decorative layers, and a clearer game title. Replaced the generic Lovable README with a project guide covering modes, controls, local setup, build, and Playables validation.
+- `git diff --check` passed. The prescribed Playwright game client remains unavailable because the `playwright` package is not installed in this workspace, so screenshot-based visual verification is still pending dependency restoration.

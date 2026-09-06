@@ -5,7 +5,7 @@ import { ScoreBoard } from "@/components/ScoreBoard";
 import { GameOverModal } from "@/components/GameOverModal";
 import { Instructions } from "@/components/Instructions";
 import { Button } from "@/components/ui/button";
-import { Trophy } from "lucide-react";
+import { Sparkles, Trophy } from "lucide-react";
 
 const gestureDirection = (dx: number, dy: number): Direction | null => {
   if (Math.max(Math.abs(dx), Math.abs(dy)) < 40) return null;
@@ -74,10 +74,11 @@ const Index = () => {
   }, [handleKeyDown, handleTouchStart, handleTouchEnd]);
 
   return (
-    <main className="playable-shell flex flex-col items-center justify-center" style={{ background: "var(--gradient-bg)" }} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}>
+    <main className="playable-shell flex flex-col items-center justify-center" onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}>
       <div className="playable-heading text-center">
-        <h1 className="text-4xl font-bold text-foreground sm:text-6xl">2048</h1>
-        <p className="mb-4 text-sm text-muted-foreground sm:mb-6 sm:text-base">{mode === "daily" ? `Reach ${dailyTarget} to extend your streak.` : mode === "dash" ? "Two minutes. Make every move count." : "Join the tiles, get to 2048!"}</p>
+        <div className="playable-eyebrow"><Sparkles className="h-3.5 w-3.5" /> Tile fusion, reimagined</div>
+        <h1 className="playable-title">2048 <span>Dash</span></h1>
+        <p className="mb-5 text-sm text-muted-foreground sm:mb-7 sm:text-base">{mode === "daily" ? `Reach ${dailyTarget} to extend your streak.` : mode === "dash" ? "Two minutes. Make every move count." : "A quiet puzzle. A bold high score."}</p>
       </div>
       <ScoreBoard score={score} bestScore={bestScore} mode={mode} canUndo={canUndo} timeRemaining={timeRemaining} onRestart={restart} onUndo={undo} onModeChange={startMode} />
       <GameGrid tiles={tiles} />

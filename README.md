@@ -1,73 +1,54 @@
-# Welcome to your Lovable project
+# 2048 Dash
 
-## Project info
+> A refined, responsive take on the classic 2048 puzzle — built for the web and prepared for YouTube Playables.
 
-**URL**: https://lovable.dev/projects/4d1495d4-a03c-4b36-a348-280ce8806a15
+Merge matching tiles, protect your streak, and make every move count.
 
-## How can I edit this code?
+## Highlights
 
-There are several ways of editing your application.
+- **Classic mode** — build toward 2048 and chase a new personal best.
+- **Daily challenge** — a deterministic board every day, with a saved completion streak.
+- **Dash mode** — score as much as possible in two focused minutes.
+- **Undo** — take back one move when you spot a better line.
+- **Play anywhere** — keyboard, mouse drag, and swipe input with a responsive layout.
+- **YouTube Playables ready** — cloud saves, host audio/pause controls, lifecycle signals, score reporting, and relative bundle paths. Ads are intentionally not included.
 
-**Use Lovable**
+## Controls
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/4d1495d4-a03c-4b36-a348-280ce8806a15) and start prompting.
+| Action | Control |
+| --- | --- |
+| Move | Arrow keys, WASD, swipe, or mouse drag |
+| Undo | `U` |
+| Restart | `R` |
+| Fullscreen | `F` |
 
-Changes made via Lovable will be committed automatically to this repo.
+## Run locally
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm ci
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Open the local URL printed by Vite (normally `http://localhost:8080`).
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Build
 
-**Use GitHub Codespaces**
+```bash
+npm run build
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+The production output uses relative asset paths so the game can be hosted from a Playables package path.
 
-## What technologies are used for this project?
+## YouTube Playables validation
 
-This project is built with:
+After starting the local server, paste `http://localhost:8080` into the [YouTube Playables SDK Test Suite](https://developers.google.com/youtube/gaming/playables/test_suite). Validate loading, audio toggling, pause/resume, resize/orientation, input, and fullscreen behavior before submitting.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+See [PLAYABLES.md](PLAYABLES.md) for the integration checklist.
 
-## How can I deploy this project?
+## Stack
 
-Simply open [Lovable](https://lovable.dev/projects/4d1495d4-a03c-4b36-a348-280ce8806a15) and click on Share -> Publish.
+React · TypeScript · Vite · Tailwind CSS · shadcn/ui
 
-## Can I connect a custom domain to my Lovable project?
+## License
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This project is provided as-is for its repository owner.
