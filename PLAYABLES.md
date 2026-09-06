@@ -11,6 +11,30 @@ This project imports `https://www.youtube.com/game_api/v1` in `index.html` befor
 
 Ads, interstitials, and rewarded ads are intentionally excluded.
 
+## Bundle paths and Test Suite
+
+`vite.config.ts` sets `base: "./"` so the production bundle emits relative asset
+references. This is required because a Playables package is hosted from an arbitrary
+path rather than from the website root.
+
+To run the official SDK Test Suite, first build or start the project locally, then
+open the [YouTube Playables Test Suite](https://developers.google.com/youtube/gaming/playables/test_suite)
+and enter the local game URL (for this project's Vite server, `http://localhost:8080`).
+Use its controls to verify the loading screen, audio toggle, pause/resume, orientation,
+and fullscreen behavior.
+
+## Bundle paths and Test Suite
+
+`vite.config.ts` sets `base: "./"` so the production bundle emits relative asset
+references. This is required because a Playables package is hosted from an arbitrary
+path rather than from the website root.
+
+To run the official SDK Test Suite, first build or start the project locally, then
+open the [YouTube Playables Test Suite](https://developers.google.com/youtube/gaming/playables/test_suite)
+and enter the local game URL (for this project's Vite server, `http://localhost:8080`).
+Use its controls to verify the loading screen, audio toggle, pause/resume, orientation,
+and fullscreen behavior.
+
 ## Responsive game canvas
 
 There is no single fixed Playables resolution. The game board is responsive for the required aspect-ratio range (including 9:32 through 32:9), scales tile text from the board container, preserves the running game on resize, and offers touch, mouse-drag, and keyboard movement. The compact landscape layout avoids scrollbars and retains legible controls.

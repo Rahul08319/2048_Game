@@ -5,6 +5,9 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // The Playables bundle is hosted from an arbitrary package path, so emitted
+  // asset references must stay relative rather than starting at the web root.
+  base: "./",
   server: {
     host: "::",
     port: 8080,
