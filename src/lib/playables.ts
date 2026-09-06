@@ -38,6 +38,9 @@ declare global {
 }
 
 export const LOCAL_SAVE_KEY = "twenty-forty-eight-dash.save.v1";
+const MAX_SAVE_BYTES = 3 * 1024 * 1024;
+let saveQueue = Promise.resolve();
+let firstFrameReadySent = false;
 
 export function getPlayablesSdk(): YtGameSdk | undefined {
   return window.ytgame;
@@ -73,7 +76,7 @@ export async function loadPlayablesSave(): Promise<string | null> {
 
 export function savePlayablesData(data: string): void {
   const isWellFormed = (String.prototype as { isWellFormed?: () => boolean }).isWellFormed;
-  if (isWellFormed && !isWellFormed.call(data)) {
+  if ((isWellFormed && !isWellFormed.call(data)) || new TextEncoder().encode(data).byteLength > MAX_SAVE_BYTES) {
     reportPlayablesHealth("warning");
     return;
   }
@@ -81,7 +84,7 @@ export function savePlayablesData(data: string): void {
   try {
     const sdk = getPlayablesSdk();
     if (sdk?.IN_PLAYABLES_ENV && sdk.game?.saveData) {
-      void sdk.game.saveData(data).catch(() => reportPlayablesHealth("warning"));
+      saveQueue = saveQueue.catch(() => undefined).then(() => sdk.game?.saveData?.(data)).catch(() => reportPlayablesHealth("warning"));
       return;
     }
     window.localStorage.setItem(LOCAL_SAVE_KEY, data);
@@ -120,10 +123,20 @@ export async function configurePlayables(handlers: PlayablesHandlers): Promise<(
   return () => removeListeners.forEach((remove) => remove());
 }
 
+export function notifyPlayableFirstFrameReady(): void {
+  if (firstFrameReadySent) return;
+  try {
+    getPlayablesSdk()?.game?.firstFrameReady?.();
+    firstFrameReadySent = true;
+  } catch {
+    reportPlayablesHealth("error");
+  }
+}
+
 export function notifyPlayableIsReady(): void {
   try {
     // Ordering is required by the Playables certification checks.
-    getPlayablesSdk()?.game?.firstFrameReady?.();
+    notifyPlayableFirstFrameReady();
     getPlayablesSdk()?.game?.gameReady?.();
   } catch {
     reportPlayablesHealth("error");

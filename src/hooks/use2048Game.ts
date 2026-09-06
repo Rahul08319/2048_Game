@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   configurePlayables,
   loadPlayablesSave,
+  notifyPlayableFirstFrameReady,
   notifyPlayableIsReady,
   reportBestScore,
   reportPlayablesHealth,
   savePlayablesData,
 } from "@/lib/playables";
-import { playMoveSound } from "@/lib/gameAudio";
+import { playMoveSound, stopGameAudio } from "@/lib/gameAudio";
 
 export type Tile = {
   id: number;
@@ -226,6 +227,7 @@ export const use2048Game = () => {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [locale, setLocale] = useState("en-US");
   const [achievementNotice, setAchievementNotice] = useState("");
+  const [winDialogOpen, setWinDialogOpen] = useState(false);
   const gameRef = useRef(game);
   const pausedRef = useRef(false);
   const undoRef = useRef<UndoState | null>(null);
@@ -259,6 +261,7 @@ export const use2048Game = () => {
         onAudioEnabledChange: (enabled) => { if (active) setAudioEnabled(enabled); },
         onPause: () => {
           pausedRef.current = true;
+          stopGameAudio();
           if (active) setPausedByHost(true);
           const frozen = gameRef.current.mode === "dash"
             ? { ...gameRef.current, timeRemaining: currentDashSeconds(gameRef.current), dashEndsAt: null }
@@ -313,6 +316,11 @@ export const use2048Game = () => {
     const timer = window.setInterval(() => tickDash(), 250);
     return () => window.clearInterval(timer);
   }, [game.dashEndsAt, game.gameOver, game.mode, pausedByHost, ready, tickDash]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(notifyPlayableFirstFrameReady);
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
@@ -389,6 +397,8 @@ export const use2048Game = () => {
       setAchievementNotice(`Daily target reached — ${next.dailyStreak}-day streak!`);
     }
 
+    if (!current.hasWon && next.hasWon) setWinDialogOpen(true);
+
     commitGame(next);
     playMoveSound(audioEnabled, result.gained > 0);
     if (bestScore > current.bestScore) reportBestScore(bestScore);
@@ -432,6 +442,8 @@ export const use2048Game = () => {
     audioEnabled,
     locale,
     achievementNotice,
+    winDialogOpen,
+    dismissWinDialog: () => setWinDialogOpen(false),
     dailyTarget: DAILY_TARGET,
   };
 };

@@ -4,6 +4,8 @@ import { GameGrid } from "@/components/GameGrid";
 import { ScoreBoard } from "@/components/ScoreBoard";
 import { GameOverModal } from "@/components/GameOverModal";
 import { Instructions } from "@/components/Instructions";
+import { Button } from "@/components/ui/button";
+import { Trophy } from "lucide-react";
 
 const gestureDirection = (dx: number, dy: number): Direction | null => {
   if (Math.max(Math.abs(dx), Math.abs(dy)) < 40) return null;
@@ -12,7 +14,7 @@ const gestureDirection = (dx: number, dy: number): Direction | null => {
 };
 
 const Index = () => {
-  const { tiles, score, bestScore, gameOver, move, undo, canUndo, restart, startMode, mode, timeRemaining, dailyStreak, dailyCompleted, dailyTarget, achievementNotice, pausedByHost, ready } = use2048Game();
+  const { tiles, score, bestScore, gameOver, hasWon, move, undo, canUndo, restart, startMode, mode, timeRemaining, dailyStreak, dailyCompleted, dailyTarget, achievementNotice, pausedByHost, ready, winDialogOpen, dismissWinDialog } = use2048Game();
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const mouseStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -32,8 +34,10 @@ const Index = () => {
     } else if (event.key === "f" || event.key === "F") {
       if (document.fullscreenElement) void document.exitFullscreen();
       else void document.documentElement.requestFullscreen?.();
+    } else if (event.key === "Escape") {
+      dismissWinDialog();
     }
-  }, [move, restart, undo]);
+  }, [dismissWinDialog, move, restart, undo]);
 
   const handleTouchStart = useCallback((event: TouchEvent) => {
     touchStartRef.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
@@ -82,13 +86,14 @@ const Index = () => {
         {achievementNotice && <span className="rounded-full bg-accent/20 px-3 py-1 text-accent">🏆 {achievementNotice}</span>}
       </div>
       <Instructions />
-      <p className="sr-only" aria-live="polite">{ready ? "Game ready" : "Loading game"}</p>
+      {!ready && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(var(--background))]" role="status" aria-live="polite"><p className="text-lg font-semibold text-foreground">Loading game…</p></div>}
       {pausedByHost && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="mx-4 max-w-sm text-center"><h2 className="mb-3 text-4xl font-bold text-foreground">Game paused</h2><p className="text-muted-foreground">Return to YouTube to continue your saved game.</p></div>
         </div>
       )}
       {gameOver && !pausedByHost && <GameOverModal score={score} mode={mode} dailyCompleted={dailyCompleted} onRestart={restart} />}
+      {hasWon && winDialogOpen && !gameOver && !pausedByHost && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="win-title"><div className="w-full max-w-md rounded-3xl bg-[hsl(var(--card))] p-8 text-center shadow-2xl"><Trophy className="mx-auto mb-3 h-10 w-10 text-primary" aria-hidden="true" /><h2 id="win-title" className="mb-3 text-4xl font-bold text-foreground">2048 reached!</h2><p className="mb-6 text-muted-foreground">You completed the classic target. Keep playing to improve your score, or start a new board.</p><div className="flex gap-3"><Button className="flex-1" onClick={dismissWinDialog}>Keep Playing</Button><Button className="flex-1" variant="secondary" onClick={restart}>New Game</Button></div></div></div>}
     </main>
   );
 };

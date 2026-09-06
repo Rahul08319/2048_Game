@@ -6,7 +6,7 @@ interface GameGridProps {
 }
 
 export const GameGrid = ({ tiles }: GameGridProps) => (
-  <div className="playable-board relative aspect-square shrink-0 rounded-3xl bg-[hsl(var(--card))] p-[3.45%] shadow-2xl touch-none">
+  <div className="playable-board relative aspect-square shrink-0 rounded-3xl bg-[hsl(var(--card))] p-[3.45%] shadow-2xl touch-none" role="img" aria-label={`2048 board with ${tiles.length} tiles`}>
     <div className="grid h-full w-full grid-cols-4 grid-rows-4 gap-[3.45%]">
       {Array.from({ length: 16 }).map((_, index) => (
         <div key={index} className="aspect-square rounded-[16%] bg-[hsl(var(--tile-empty))]" />

@@ -18,3 +18,11 @@ export function playMoveSound(enabled: boolean, merged: boolean): void {
     // Audio is progressive enhancement; a device policy must not break a move.
   }
 }
+
+export function stopGameAudio(): void {
+  try {
+    if (audioContext?.state === "running") void audioContext.suspend();
+  } catch {
+    // A host pause must not fail on a device with restricted audio.
+  }
+}
