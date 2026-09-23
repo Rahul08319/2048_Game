@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { use2048Game, type Direction } from "@/hooks/use2048Game";
+import { GameHUD } from "@/components/GameHUD";
 import { GameGrid } from "@/components/GameGrid";
-import { ScoreBoard } from "@/components/ScoreBoard";
+import { BottomControls } from "@/components/BottomControls";
+import { PauseMenuModal } from "@/components/PauseMenuModal";
 import { GameOverModal } from "@/components/GameOverModal";
-import { Instructions } from "@/components/Instructions";
 import { PlatformSelectorModal } from "@/components/PlatformSelectorModal";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Trophy, Play } from "lucide-react";
+import { Trophy, Play } from "lucide-react";
 
 const gestureDirection = (dx: number, dy: number): Direction | null => {
-  if (Math.max(Math.abs(dx), Math.abs(dy)) < 30) return null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 25) return null;
   if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? "right" : "left";
   return dy > 0 ? "down" : "up";
 };
@@ -30,9 +31,9 @@ const Index = () => {
     timeRemaining,
     dailyStreak,
     dailyCompleted,
-    dailyTarget,
-    achievementNotice,
     pausedByHost,
+    pauseMenuOpen,
+    setPauseMenuOpen,
     ready,
     winDialogOpen,
     dismissWinDialog,
@@ -43,6 +44,9 @@ const Index = () => {
     adPlaying,
     audioEnabled,
     toggleAudio,
+    scoreGains,
+    combo,
+    shake,
   } = use2048Game();
 
   const [platformSelectorOpen, setPlatformSelectorOpen] = useState(false);
@@ -51,6 +55,12 @@ const Index = () => {
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      // Don't intercept if an overlay or modal is active
+      if (pauseMenuOpen) {
+        if (event.key === "Escape") setPauseMenuOpen(false);
+        return;
+      }
+
       const directionMap: Record<string, Direction> = {
         ArrowUp: "up",
         ArrowDown: "down",
@@ -65,6 +75,7 @@ const Index = () => {
         d: "right",
         D: "right",
       };
+
       const direction = directionMap[event.key];
       if (direction) {
         event.preventDefault();
@@ -73,14 +84,14 @@ const Index = () => {
         undo();
       } else if (event.key === "r" || event.key === "R") {
         restart();
+      } else if (event.key === "p" || event.key === "P" || event.key === "Escape") {
+        setPauseMenuOpen(true);
       } else if (event.key === "f" || event.key === "F") {
         if (document.fullscreenElement) void document.exitFullscreen();
         else void document.documentElement.requestFullscreen?.();
-      } else if (event.key === "Escape") {
-        dismissWinDialog();
       }
     },
-    [dismissWinDialog, move, restart, undo]
+    [move, pauseMenuOpen, restart, setPauseMenuOpen, undo]
   );
 
   const handleTouchStart = useCallback((event: TouchEvent) => {
@@ -133,68 +144,56 @@ const Index = () => {
 
   return (
     <main
-      className="playable-shell flex flex-col items-center justify-center min-h-[100svh] relative select-none"
+      className="playable-shell relative"
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     >
-      {/* Apple-style subtle ambient glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/15 rounded-full blur-3xl pointer-events-none -z-10" />
+      {/* Background ambient lighting */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-primary/15 rounded-full blur-[100px] pointer-events-none -z-10" />
 
-      {/* Header section */}
-      <div className="playable-heading text-center mb-3 sm:mb-4">
-        <div className="playable-eyebrow inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/[0.06] border border-white/10 text-primary mb-2 shadow-inner">
-          <Sparkles className="h-3.5 w-3.5" /> Apple Fluid Design · Multi-Platform
-        </div>
-        <h1 className="playable-title text-4xl sm:text-5xl font-black tracking-tight text-white">
-          2048 <span className="font-light text-primary">Dash</span>
-        </h1>
-        <p className="mt-1 text-xs sm:text-sm text-zinc-400 font-medium">
-          {mode === "daily"
-            ? `Daily Target: Reach ${dailyTarget} to preserve streak.`
-            : mode === "dash"
-            ? "Two minutes on the clock. Score maximum points."
-            : "Merge matching numbers to reach the 2048 tile."}
-        </p>
-      </div>
-
-      {/* Controls and Score Header */}
-      <ScoreBoard
+      {/* 1. Arcade Game Top HUD */}
+      <GameHUD
         score={score}
         bestScore={bestScore}
         mode={mode}
-        canUndo={canUndo}
         timeRemaining={timeRemaining}
+        dailyStreak={dailyStreak}
         audioEnabled={audioEnabled}
-        platform={platform}
-        onRestart={restart}
-        onUndo={undo}
-        onModeChange={startMode}
+        scoreGains={scoreGains}
+        onOpenPause={() => setPauseMenuOpen(true)}
         onToggleAudio={toggleAudio}
-        onOpenPlatformSelector={() => setPlatformSelectorOpen(true)}
-        onRewardedUndo={getFreeUndoWithAd}
+        onModeChange={startMode}
       />
 
-      {/* The 2048 Game Board */}
-      <GameGrid tiles={tiles} />
+      {/* 2. Centered Game Board (The Core Gameplay) */}
+      <GameGrid tiles={tiles} shake={shake} combo={combo} />
 
-      {/* Badges / Streak Notification */}
-      <div className="mt-2 flex min-h-6 flex-wrap items-center justify-center gap-2 text-center text-xs" aria-live="polite">
-        {mode === "daily" && (
-          <span className="rounded-full bg-primary/20 border border-primary/30 px-3 py-0.5 text-primary font-semibold">
-            🔥 {dailyStreak}-day streak {dailyCompleted ? "· Complete" : "· In Progress"}
-          </span>
-        )}
-        {achievementNotice && (
-          <span className="rounded-full bg-accent/20 border border-accent/30 px-3 py-0.5 text-accent font-semibold animate-pulse">
-            🏆 {achievementNotice}
-          </span>
-        )}
-      </div>
+      {/* 3. Bottom Game Action Controls */}
+      <BottomControls
+        canUndo={canUndo}
+        onUndo={undo}
+        onRewardedUndo={getFreeUndoWithAd}
+        onRestart={restart}
+        mode={mode}
+        timeRemaining={timeRemaining}
+        adPlaying={adPlaying}
+      />
 
-      {/* Control Instructions */}
-      <Instructions />
+      {/* In-Game Pause Menu */}
+      <PauseMenuModal
+        open={pauseMenuOpen}
+        onOpenChange={setPauseMenuOpen}
+        onResume={() => setPauseMenuOpen(false)}
+        onRestart={restart}
+        mode={mode}
+        onModeChange={startMode}
+        audioEnabled={audioEnabled}
+        onToggleAudio={toggleAudio}
+        platform={platform}
+        onOpenPlatformSelector={() => setPlatformSelectorOpen(true)}
+      />
 
-      {/* Platform Switcher Modal */}
+      {/* Platform SDK Switcher Modal (accessible from pause menu) */}
       <PlatformSelectorModal
         open={platformSelectorOpen}
         onOpenChange={setPlatformSelectorOpen}
@@ -205,24 +204,24 @@ const Index = () => {
       {/* Initial Loading Screen */}
       {!ready && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0b14] text-white"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#070810] text-white"
           role="status"
           aria-live="polite"
         >
-          <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center mb-4 animate-bounce">
-            <Play className="w-6 h-6 text-primary fill-primary" />
+          <div className="w-14 h-14 rounded-3xl bg-primary/20 border border-primary/40 flex items-center justify-center mb-4 animate-bounce">
+            <Play className="w-7 h-7 text-primary fill-primary ml-0.5" />
           </div>
-          <p className="text-base font-bold tracking-tight text-white">Initializing 2048 Dash…</p>
-          <p className="text-xs text-zinc-500 mt-1">Connecting to {platform.name}</p>
+          <p className="text-base font-black tracking-tight text-white">Loading 2048…</p>
+          <p className="text-xs text-zinc-500 mt-1">{platform.name}</p>
         </div>
       )}
 
       {/* Host Paused Overlay */}
       {pausedByHost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl">
-          <div className="mx-4 max-w-sm text-center p-6 rounded-3xl bg-[#0f111d] border border-white/10 shadow-2xl">
-            <h2 className="mb-2 text-3xl font-extrabold text-white">Game Paused</h2>
-            <p className="text-sm text-zinc-400">Your session is preserved. Resume when you're ready to play.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-2xl">
+          <div className="mx-4 max-w-sm text-center p-6 rounded-3xl bg-[#0d0f1b] border border-white/10 shadow-2xl">
+            <h2 className="mb-2 text-3xl font-black text-white">Game Paused</h2>
+            <p className="text-xs text-zinc-400">Game session paused by host. Return to continue.</p>
           </div>
         </div>
       )}
@@ -244,26 +243,32 @@ const Index = () => {
       {/* Win Modal (2048 Reached) */}
       {hasWon && winDialogOpen && !gameOver && !pausedByHost && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xl animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-2xl animate-in fade-in"
           role="dialog"
           aria-modal="true"
           aria-labelledby="win-title"
         >
-          <div className="w-full max-w-sm sm:max-w-md rounded-3xl bg-[#0e101d] border border-white/15 p-6 sm:p-8 text-center shadow-2xl animate-in zoom-in-95">
+          <div className="w-full max-w-sm rounded-[2rem] bg-[#0c0e1a] border border-white/15 p-6 text-center shadow-2xl animate-in zoom-in-95">
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
-              <Trophy className="h-8 w-8 text-amber-400" aria-hidden="true" />
+              <Trophy className="h-7 w-7 text-amber-400" aria-hidden="true" />
             </div>
-            <h2 id="win-title" className="text-3xl font-extrabold text-white mb-2">
-              2048 Tile Reached!
+            <h2 id="win-title" className="text-3xl font-black text-white mb-1.5">
+              2048 Reached!
             </h2>
-            <p className="text-sm text-zinc-400 mb-6">
-              Congratulations! You have achieved the classic 2048 tile. You can continue playing to score even higher, or start fresh.
+            <p className="text-xs text-zinc-400 mb-5">
+              You achieved the 2048 tile! Keep going to set a new record or start fresh.
             </p>
-            <div className="flex gap-2.5">
-              <Button className="flex-1 rounded-2xl font-bold bg-primary hover:bg-primary/90 h-12" onClick={dismissWinDialog}>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 rounded-2xl font-bold bg-primary hover:bg-primary/90 h-12 text-sm"
+                onClick={dismissWinDialog}
+              >
                 Keep Playing
               </Button>
-              <Button className="flex-1 rounded-2xl font-bold bg-white/10 hover:bg-white/15 border border-white/10 h-12 text-white" onClick={restart}>
+              <Button
+                className="flex-1 rounded-2xl font-bold bg-white/10 hover:bg-white/15 border border-white/10 h-12 text-white text-sm"
+                onClick={restart}
+              >
                 New Game
               </Button>
             </div>

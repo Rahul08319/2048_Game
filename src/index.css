@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Apple Design System & Fluid Materials */
+/* Apple Game Design & Fluid Arcade Engine */
 
 @layer base {
   :root {
@@ -45,42 +45,41 @@
     font-family: var(--font-apple);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
 
-  body {
-    @apply bg-background text-foreground;
-    background-color: #090a12;
-    overflow-x: hidden;
-    touch-action: manipulation;
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    position: fixed;
+    touch-action: none;
+    background-color: #080912;
   }
 }
 
-/* Apple Fluid Outer Shell */
+/* Immersive Fullscreen Game Shell */
 .playable-shell {
-  min-height: 100svh;
-  padding: clamp(0.75rem, 2.5vw, 2rem);
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(0.5rem, 2vh, 1.25rem) clamp(0.75rem, 3vw, 1.5rem);
   isolation: isolate;
   background:
-    radial-gradient(circle at 50% -10%, hsl(265 90% 55% / 0.22), transparent 40rem),
-    radial-gradient(circle at 10% 95%, hsl(210 95% 55% / 0.14), transparent 36rem),
-    linear-gradient(180deg, #090a12 0%, #0c0e1a 50%, #080910 100%);
-}
-
-.playable-heading {
-  max-width: 32rem;
-}
-
-.playable-title {
-  margin: 0;
-  color: #ffffff;
-  font-weight: 900;
-  letter-spacing: -0.045em;
-  line-height: 0.95;
+    radial-gradient(circle at 50% -10%, hsl(265 90% 55% / 0.22), transparent 36rem),
+    radial-gradient(circle at 10% 95%, hsl(210 95% 55% / 0.16), transparent 32rem),
+    linear-gradient(180deg, #070810 0%, #0c0e1c 50%, #070810 100%);
 }
 
 /* Responsive Board Scaling */
 .playable-board {
-  width: min(92vw, 62svh, 29rem);
+  width: min(92vw, 58svh, 420px);
   container-type: inline-size;
 }
 
@@ -112,44 +111,65 @@
   }
 }
 
+@keyframes scoreFloat {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-16px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.9);
+  }
+}
+
+@keyframes boardShake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-3px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  60% { transform: translate(-2px, -1px); }
+  80% { transform: translate(2px, 1px); }
+}
+
 .animate-tile-appear {
-  animation: tileAppear 0.24s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  animation: tileAppear 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 .animate-tile-merge {
-  animation: tileMerge 0.24s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
+  animation: tileMerge 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
+}
+
+.animate-score-float {
+  animation: scoreFloat 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-board-shake {
+  animation: boardShake 0.22s ease-in-out;
 }
 
 /* Landscape Mode for Compact Mobile & Playables Aspect Ratios */
 @media (orientation: landscape) and (max-height: 640px) {
   .playable-shell {
     flex-direction: row;
-    flex-wrap: wrap;
-    align-content: center;
+    align-items: center;
     justify-content: center;
-    gap: 1.25rem;
-    padding: 0.5rem;
-  }
-
-  .playable-heading,
-  .playable-instructions {
-    display: none;
+    gap: 1.5rem;
+    padding: 0.5rem 1rem;
   }
 
   .playable-board {
-    width: min(78svh, 54vw, 29rem);
-  }
-
-  .playable-scoreboard {
-    width: min(34vw, 15rem);
-    flex-direction: column;
+    width: min(82svh, 50vw, 420px);
   }
 }
 
 /* Reduced Motion Mode */
 @media (prefers-reduced-motion: reduce) {
   .animate-tile-appear,
-  .animate-tile-merge {
+  .animate-tile-merge,
+  .animate-score-float,
+  .animate-board-shake {
     animation: none !important;
     transition: opacity 120ms ease;
   }

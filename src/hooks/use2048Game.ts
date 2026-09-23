@@ -15,6 +15,7 @@ import {
   playUndoSound,
   playWinSound,
   stopGameAudio,
+  triggerHaptic,
 } from "@/lib/gameAudio";
 
 export type Tile = {
@@ -237,6 +238,7 @@ export const use2048Game = () => {
   const [game, setGame] = useState<GameState>(() => createGame("classic", 0));
   const [ready, setReady] = useState(false);
   const [pausedByHost, setPausedByHost] = useState(false);
+  const [pauseMenuOpen, setPauseMenuOpen] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [locale, setLocale] = useState("en-US");
   const [achievementNotice, setAchievementNotice] = useState("");
@@ -244,6 +246,11 @@ export const use2048Game = () => {
   const [platform, setPlatform] = useState<PlatformMetadata>(() => platformManager.metadata);
   const [canUndo, setCanUndo] = useState(false);
   const [adPlaying, setAdPlaying] = useState(false);
+
+  // Arcade game effects
+  const [scoreGains, setScoreGains] = useState<Array<{ id: number; value: number }>>([]);
+  const [combo, setCombo] = useState(0);
+  const [shake, setShake] = useState(false);
 
   const gameRef = useRef(game);
   const pausedRef = useRef(false);
@@ -267,7 +274,6 @@ export const use2048Game = () => {
     }
   }, []);
 
-  // Maybe show interstitial ad (with cooldown)
   const maybeShowInterstitial = useCallback(async () => {
     const now = Date.now();
     if (now - lastAdTimeRef.current < AD_COOLDOWN_MS) return;
@@ -286,7 +292,6 @@ export const use2048Game = () => {
     let active = true;
     let cleanup = () => undefined;
 
-    // Subscribe to platform switch
     const unsubPlatform = platformManager.subscribe((adapter) => {
       if (active) setPlatform(adapter.metadata);
     });
@@ -417,6 +422,25 @@ export const use2048Game = () => {
     const bestScore = Math.max(current.bestScore, score);
     const isOver = !canMove(withRandomTile.tiles);
 
+    // Arcade Effects
+    if (result.gained > 0) {
+      const gainId = Date.now() + Math.random();
+      setScoreGains((prev) => [...prev, { id: gainId, value: result.gained }]);
+      window.setTimeout(() => {
+        setScoreGains((prev) => prev.filter((g) => g.id !== gainId));
+      }, 700);
+
+      setCombo((c) => c + 1);
+
+      if (result.maxMergeValue >= 64) {
+        setShake(true);
+        triggerHaptic("heavy");
+        window.setTimeout(() => setShake(false), 220);
+      }
+    } else {
+      setCombo(0);
+    }
+
     let next: GameState = {
       ...current,
       tiles: withRandomTile.tiles,
@@ -472,6 +496,7 @@ export const use2048Game = () => {
     };
     undoRef.current = null;
     setCanUndo(false);
+    setCombo(0);
     commitGame(next);
     playUndoSound(audioEnabled);
   }, [audioEnabled, commitGame, ready]);
@@ -481,6 +506,7 @@ export const use2048Game = () => {
     const current = gameRef.current;
     undoRef.current = null;
     setCanUndo(false);
+    setCombo(0);
     setAchievementNotice("");
     commitGame(createGame(mode, current.bestScore, current.dailyStreak, current.lastDailyCompletion));
     void maybeShowInterstitial();
@@ -488,14 +514,12 @@ export const use2048Game = () => {
 
   const restart = useCallback(() => startMode(gameRef.current.mode), [startMode]);
 
-  // Rewarded Ad: Revive (Clears lowest 2 tiles to give breathing room)
   const reviveGameWithAd = useCallback(async (): Promise<boolean> => {
     setAdPlaying(true);
     try {
       const earned = await platformManager.requestRewardedAd("revive-game-save");
       if (earned) {
         const current = gameRef.current;
-        // Sort tiles ascending by value and remove 2 lowest tiles
         const sorted = [...current.tiles].sort((a, b) => a.value - b.value);
         const kept = sorted.slice(2);
         const next: GameState = {
@@ -506,7 +530,7 @@ export const use2048Game = () => {
           dashEndsAt: current.mode === "dash" ? Date.now() + ((current.timeRemaining || 30) + 30) * 1000 : null,
         };
         commitGame(next);
-        setAchievementNotice("✨ Revived! 2 tiles cleared.");
+        setAchievementNotice("✨ Revived! 2 lowest tiles cleared.");
         return true;
       }
       return false;
@@ -517,7 +541,6 @@ export const use2048Game = () => {
     }
   }, [commitGame]);
 
-  // Rewarded Ad: Free Undo (Allows undo even if canUndo was false)
   const getFreeUndoWithAd = useCallback(async (): Promise<boolean> => {
     setAdPlaying(true);
     try {
@@ -526,7 +549,6 @@ export const use2048Game = () => {
         undo();
         return true;
       } else if (earned) {
-        // Remove the latest tile
         const current = gameRef.current;
         if (current.tiles.length > 2) {
           const kept = current.tiles.slice(0, current.tiles.length - 1);
@@ -557,6 +579,8 @@ export const use2048Game = () => {
     startMode,
     ready,
     pausedByHost,
+    pauseMenuOpen,
+    setPauseMenuOpen,
     audioEnabled,
     locale,
     achievementNotice,
@@ -569,5 +593,8 @@ export const use2048Game = () => {
     getFreeUndoWithAd,
     adPlaying,
     toggleAudio: () => setAudioEnabled((prev) => !prev),
+    scoreGains,
+    combo,
+    shake,
   };
 };
