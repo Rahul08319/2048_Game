@@ -1,0 +1,30 @@
+{
+  "name": "2048 Dash",
+  "short_name": "2048 Dash",
+  "description": "Fluid, Apple-designed 2048 puzzle game with multi-platform support.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0c16",
+  "theme_color": "#161826",
+  "icons": [
+    {
+      "src": "./favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["games", "puzzle"],
+  "shortcuts": [
+    {
+      "name": "Classic Mode",
+      "url": "./index.html?mode=classic",
+      "description": "Start a classic game"
+    },
+    {
+      "name": "Dash Mode",
+      "url": "./index.html?mode=dash",
+      "description": "2-minute score dash"
+    }
+  ]
+}

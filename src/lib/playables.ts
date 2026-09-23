@@ -1,3 +1,6 @@
+import { platformManager } from "./platform/platformManager";
+import type { PlatformLifecycleHandlers } from "./platform/types";
+
 export type PlayablesHandlers = {
   onAudioEnabledChange: (enabled: boolean) => void;
   onPause: () => void;
@@ -5,147 +8,62 @@ export type PlayablesHandlers = {
   onLanguage: (language: string) => void;
 };
 
-type YtGameSdk = {
-  IN_PLAYABLES_ENV?: boolean;
-  game?: {
-    firstFrameReady?: () => void;
-    gameReady?: () => void;
-    loadData?: () => Promise<string>;
-    saveData?: (data: string) => Promise<void>;
-  };
-  system?: {
-    isAudioEnabled?: () => boolean;
-    onAudioEnabledChange?: (callback: (enabled: boolean) => void) => (() => void);
-    onPause?: (callback: () => void) => (() => void);
-    onResume?: (callback: () => void) => (() => void);
-    getLanguage?: () => Promise<string>;
-  };
-  engagement?: {
-    sendScore?: (score: { value: number }) => Promise<void>;
-  };
-  health?: {
-    logError?: () => void;
-    logWarning?: () => void;
-  };
-};
-
-declare global {
-  interface Window {
-    ytgame?: YtGameSdk;
-    render_game_to_text?: () => string;
-    advanceTime?: (milliseconds: number) => void;
-  }
-}
-
 export const LOCAL_SAVE_KEY = "twenty-forty-eight-dash.save.v1";
-const MAX_SAVE_BYTES = 3 * 1024 * 1024;
-let saveQueue = Promise.resolve();
-let firstFrameReadySent = false;
 
-export function getPlayablesSdk(): YtGameSdk | undefined {
+export function getPlayablesSdk() {
   return window.ytgame;
 }
 
 export function isInPlayablesEnvironment(): boolean {
-  return Boolean(getPlayablesSdk()?.IN_PLAYABLES_ENV);
+  return Boolean(window.ytgame?.IN_PLAYABLES_ENV);
 }
 
 export function reportPlayablesHealth(level: "error" | "warning"): void {
-  const sdk = getPlayablesSdk();
-  if (!sdk?.IN_PLAYABLES_ENV) return;
-  try {
-    if (level === "error") sdk.health?.logError?.();
-    else sdk.health?.logWarning?.();
-  } catch {
-    // Health reporting is best-effort and must never interrupt gameplay.
+  if (level === "error") {
+    platformManager.logError();
+  } else {
+    platformManager.logWarning();
   }
 }
 
 export async function loadPlayablesSave(): Promise<string | null> {
-  try {
-    const sdk = getPlayablesSdk();
-    if (sdk?.IN_PLAYABLES_ENV && sdk.game?.loadData) {
-      return await sdk.game.loadData();
-    }
-    return window.localStorage.getItem(LOCAL_SAVE_KEY);
-  } catch {
-    reportPlayablesHealth("warning");
-    return null;
-  }
+  return platformManager.loadData();
 }
 
 export function savePlayablesData(data: string): void {
-  const isWellFormed = (String.prototype as { isWellFormed?: () => boolean }).isWellFormed;
-  if ((isWellFormed && !isWellFormed.call(data)) || new TextEncoder().encode(data).byteLength > MAX_SAVE_BYTES) {
-    reportPlayablesHealth("warning");
-    return;
-  }
-
-  try {
-    const sdk = getPlayablesSdk();
-    if (sdk?.IN_PLAYABLES_ENV && sdk.game?.saveData) {
-      saveQueue = saveQueue.catch(() => undefined).then(() => sdk.game?.saveData?.(data)).catch(() => reportPlayablesHealth("warning"));
-      return;
-    }
-    window.localStorage.setItem(LOCAL_SAVE_KEY, data);
-  } catch {
-    reportPlayablesHealth("warning");
-  }
+  void platformManager.saveData(data);
 }
 
 export async function configurePlayables(handlers: PlayablesHandlers): Promise<() => void> {
-  const sdk = getPlayablesSdk();
-  if (!sdk?.IN_PLAYABLES_ENV) return () => undefined;
+  const lifecycleHandlers: PlatformLifecycleHandlers = {
+    onAudioEnabledChange: handlers.onAudioEnabledChange,
+    onPause: handlers.onPause,
+    onResume: handlers.onResume,
+    onLanguage: handlers.onLanguage,
+  };
 
-  const removeListeners: Array<() => void> = [];
-  const onUnhandledError = () => reportPlayablesHealth("error");
-  window.addEventListener("error", onUnhandledError);
-  window.addEventListener("unhandledrejection", onUnhandledError);
-  removeListeners.push(() => window.removeEventListener("error", onUnhandledError));
-  removeListeners.push(() => window.removeEventListener("unhandledrejection", onUnhandledError));
-  try {
-    handlers.onAudioEnabledChange(Boolean(sdk.system?.isAudioEnabled?.()));
-    const removeAudio = sdk.system?.onAudioEnabledChange?.(handlers.onAudioEnabledChange);
-    const removePause = sdk.system?.onPause?.(handlers.onPause);
-    const removeResume = sdk.system?.onResume?.(handlers.onResume);
-    if (removeAudio) removeListeners.push(removeAudio);
-    if (removePause) removeListeners.push(removePause);
-    if (removeResume) removeListeners.push(removeResume);
-
-    if (sdk.system?.getLanguage) {
-      const language = await sdk.system.getLanguage();
-      if (language) handlers.onLanguage(language);
-    }
-  } catch {
-    reportPlayablesHealth("warning");
-  }
-
-  return () => removeListeners.forEach((remove) => remove());
+  await platformManager.initialize(lifecycleHandlers);
+  return () => {};
 }
 
 export function notifyPlayableFirstFrameReady(): void {
-  if (firstFrameReadySent) return;
-  try {
-    getPlayablesSdk()?.game?.firstFrameReady?.();
-    firstFrameReadySent = true;
-  } catch {
-    reportPlayablesHealth("error");
-  }
+  platformManager.notifyFirstFrameReady();
 }
 
 export function notifyPlayableIsReady(): void {
-  try {
-    // Ordering is required by the Playables certification checks.
-    notifyPlayableFirstFrameReady();
-    getPlayablesSdk()?.game?.gameReady?.();
-  } catch {
-    reportPlayablesHealth("error");
-  }
+  platformManager.notifyGameReady();
 }
 
 export function reportBestScore(score: number): void {
-  const sdk = getPlayablesSdk();
-  if (!sdk?.IN_PLAYABLES_ENV || !sdk.engagement?.sendScore) return;
-  const value = Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.floor(score)));
-  void sdk.engagement.sendScore({ value }).catch(() => reportPlayablesHealth("warning"));
+  void platformManager.sendScore(score);
 }
+
+export async function requestInterstitial(): Promise<boolean> {
+  return platformManager.requestInterstitialAd();
+}
+
+export async function requestRewarded(rewardId: string): Promise<boolean> {
+  return platformManager.requestRewardedAd(rewardId);
+}
+
+export { platformManager };

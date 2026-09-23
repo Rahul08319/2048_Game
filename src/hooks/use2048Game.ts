@@ -7,8 +7,15 @@ import {
   reportBestScore,
   reportPlayablesHealth,
   savePlayablesData,
+  platformManager,
 } from "@/lib/playables";
-import { playMoveSound, stopGameAudio } from "@/lib/gameAudio";
+import type { PlatformId, PlatformMetadata } from "@/lib/platform/types";
+import {
+  playMoveSound,
+  playUndoSound,
+  playWinSound,
+  stopGameAudio,
+} from "@/lib/gameAudio";
 
 export type Tile = {
   id: number;
@@ -44,6 +51,7 @@ type UndoState = Pick<GameState, "tiles" | "score" | "nextId" | "gameOver" | "ha
 const GRID_SIZE = 4;
 const DASH_SECONDS = 120;
 const DAILY_TARGET = 128;
+const AD_COOLDOWN_MS = 60 * 1000;
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -134,6 +142,7 @@ function applyMove(game: GameState, direction: Direction) {
   let nextId = game.nextId;
   let gained = 0;
   let moved = false;
+  let maxMergeValue = 0;
 
   for (let line = 0; line < GRID_SIZE; line += 1) {
     const coordinates = lineCoordinates(direction, line);
@@ -142,10 +151,14 @@ function applyMove(game: GameState, direction: Direction) {
       const current = existing[source];
       const merge = existing[source + 1]?.value === current.value;
       const target = coordinates[destination];
+      const nextVal = merge ? current.value * 2 : current.value;
+      if (merge && nextVal > maxMergeValue) {
+        maxMergeValue = nextVal;
+      }
       const movedTile: Tile = {
         ...current,
         id: merge ? nextId++ : current.id,
-        value: merge ? current.value * 2 : current.value,
+        value: nextVal,
         position: target,
         isNew: false,
         isMerged: merge,
@@ -158,7 +171,7 @@ function applyMove(game: GameState, direction: Direction) {
       tiles.push(movedTile);
     }
   }
-  return { tiles, nextId, gained, moved };
+  return { tiles, nextId, gained, moved, maxMergeValue };
 }
 
 function currentDashSeconds(game: GameState) {
@@ -228,9 +241,14 @@ export const use2048Game = () => {
   const [locale, setLocale] = useState("en-US");
   const [achievementNotice, setAchievementNotice] = useState("");
   const [winDialogOpen, setWinDialogOpen] = useState(false);
+  const [platform, setPlatform] = useState<PlatformMetadata>(() => platformManager.metadata);
+  const [canUndo, setCanUndo] = useState(false);
+  const [adPlaying, setAdPlaying] = useState(false);
+
   const gameRef = useRef(game);
   const pausedRef = useRef(false);
   const undoRef = useRef<UndoState | null>(null);
+  const lastAdTimeRef = useRef<number>(0);
 
   const commitGame = useCallback((next: GameState, persist = true) => {
     gameRef.current = next;
@@ -249,9 +267,30 @@ export const use2048Game = () => {
     }
   }, []);
 
+  // Maybe show interstitial ad (with cooldown)
+  const maybeShowInterstitial = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastAdTimeRef.current < AD_COOLDOWN_MS) return;
+    lastAdTimeRef.current = now;
+    setAdPlaying(true);
+    try {
+      await platformManager.requestInterstitialAd();
+    } catch {
+      //
+    } finally {
+      setAdPlaying(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
     let cleanup = () => undefined;
+
+    // Subscribe to platform switch
+    const unsubPlatform = platformManager.subscribe((adapter) => {
+      if (active) setPlatform(adapter.metadata);
+    });
+
     const initialize = async () => {
       const restored = restoreFromSave(await loadPlayablesSave());
       if (!active) return;
@@ -289,10 +328,12 @@ export const use2048Game = () => {
       }
       setReady(true);
     };
+
     void initialize();
     return () => {
       active = false;
       cleanup();
+      unsubPlatform();
     };
   }, [commitGame, restoreFromSave]);
 
@@ -301,14 +342,18 @@ export const use2048Game = () => {
     if (current.mode !== "dash" || current.gameOver || pausedRef.current) return;
     const timeRemaining = currentDashSeconds(current) ?? 0;
     if (timeRemaining === current.timeRemaining && timeRemaining > 0) return;
+    const isOver = timeRemaining === 0 || current.gameOver;
     const next: GameState = {
       ...current,
       timeRemaining,
       dashEndsAt: timeRemaining > 0 ? current.dashEndsAt : null,
-      gameOver: timeRemaining === 0 || current.gameOver,
+      gameOver: isOver,
     };
     commitGame(next, timeRemaining === 0 && persistWhenFinished);
-  }, [commitGame]);
+    if (isOver) {
+      void maybeShowInterstitial();
+    }
+  }, [commitGame, maybeShowInterstitial]);
 
   useEffect(() => {
     if (!ready || pausedByHost || game.mode !== "dash" || !game.dashEndsAt || game.gameOver) return;
@@ -335,6 +380,7 @@ export const use2048Game = () => {
       board: game.tiles.map((tile) => ({ row: tile.position.row, col: tile.position.col, value: tile.value })),
       score: game.score,
       bestScore: game.bestScore,
+      platform: platform.name,
       daily: { date: game.dailyDate, completed: game.dailyCompleted, streak: game.dailyStreak, target: DAILY_TARGET },
       dashSecondsRemaining: currentDashSeconds(game),
       controls: "Arrow keys/WASD, swipe, or mouse drag to move; U undo; R restart; F fullscreen",
@@ -352,9 +398,7 @@ export const use2048Game = () => {
       if (window.render_game_to_text === renderText) delete window.render_game_to_text;
       if (window.advanceTime === advanceTime) delete window.advanceTime;
     };
-  }, [commitGame, game, pausedByHost]);
-
-  const [canUndo, setCanUndo] = useState(false);
+  }, [commitGame, game, pausedByHost, platform.name]);
 
   const move = useCallback((direction: Direction) => {
     const current = gameRef.current;
@@ -371,6 +415,8 @@ export const use2048Game = () => {
     const withRandomTile = addRandomTile(result.tiles, result.nextId, current.mode, current.rngState);
     const score = current.score + result.gained;
     const bestScore = Math.max(current.bestScore, score);
+    const isOver = !canMove(withRandomTile.tiles);
+
     let next: GameState = {
       ...current,
       tiles: withRandomTile.tiles,
@@ -379,7 +425,7 @@ export const use2048Game = () => {
       score,
       bestScore,
       timeRemaining: currentDashSeconds(current),
-      gameOver: !canMove(withRandomTile.tiles),
+      gameOver: isOver,
       hasWon: current.hasWon || withRandomTile.tiles.some((tile) => tile.value >= 2048),
     };
 
@@ -397,17 +443,27 @@ export const use2048Game = () => {
       setAchievementNotice(`Daily target reached — ${next.dailyStreak}-day streak!`);
     }
 
-    if (!current.hasWon && next.hasWon) setWinDialogOpen(true);
+    if (!current.hasWon && next.hasWon) {
+      setWinDialogOpen(true);
+      playWinSound(audioEnabled);
+    }
 
     commitGame(next);
-    playMoveSound(audioEnabled, result.gained > 0);
-    if (bestScore > current.bestScore) reportBestScore(bestScore);
-  }, [audioEnabled, commitGame, ready, tickDash]);
+    playMoveSound(audioEnabled, result.gained > 0, result.maxMergeValue);
+
+    if (bestScore > current.bestScore) {
+      reportBestScore(bestScore);
+    }
+
+    if (isOver) {
+      void maybeShowInterstitial();
+    }
+  }, [audioEnabled, commitGame, maybeShowInterstitial, ready, tickDash]);
 
   const undo = useCallback(() => {
     const snapshot = undoRef.current;
     const current = gameRef.current;
-    if (!ready || pausedRef.current || !snapshot || current.mode === "dash" && (currentDashSeconds(current) ?? 0) === 0) return;
+    if (!ready || pausedRef.current || !snapshot || (current.mode === "dash" && (currentDashSeconds(current) ?? 0) === 0)) return;
     const next: GameState = {
       ...current,
       ...snapshot,
@@ -417,7 +473,8 @@ export const use2048Game = () => {
     undoRef.current = null;
     setCanUndo(false);
     commitGame(next);
-  }, [commitGame, ready]);
+    playUndoSound(audioEnabled);
+  }, [audioEnabled, commitGame, ready]);
 
   const startMode = useCallback((mode: GameMode) => {
     if (!ready || pausedRef.current) return;
@@ -426,9 +483,70 @@ export const use2048Game = () => {
     setCanUndo(false);
     setAchievementNotice("");
     commitGame(createGame(mode, current.bestScore, current.dailyStreak, current.lastDailyCompletion));
-  }, [commitGame, ready]);
+    void maybeShowInterstitial();
+  }, [commitGame, maybeShowInterstitial, ready]);
 
   const restart = useCallback(() => startMode(gameRef.current.mode), [startMode]);
+
+  // Rewarded Ad: Revive (Clears lowest 2 tiles to give breathing room)
+  const reviveGameWithAd = useCallback(async (): Promise<boolean> => {
+    setAdPlaying(true);
+    try {
+      const earned = await platformManager.requestRewardedAd("revive-game-save");
+      if (earned) {
+        const current = gameRef.current;
+        // Sort tiles ascending by value and remove 2 lowest tiles
+        const sorted = [...current.tiles].sort((a, b) => a.value - b.value);
+        const kept = sorted.slice(2);
+        const next: GameState = {
+          ...current,
+          tiles: kept,
+          gameOver: false,
+          timeRemaining: current.mode === "dash" ? (current.timeRemaining || 30) + 30 : null,
+          dashEndsAt: current.mode === "dash" ? Date.now() + ((current.timeRemaining || 30) + 30) * 1000 : null,
+        };
+        commitGame(next);
+        setAchievementNotice("✨ Revived! 2 tiles cleared.");
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      setAdPlaying(false);
+    }
+  }, [commitGame]);
+
+  // Rewarded Ad: Free Undo (Allows undo even if canUndo was false)
+  const getFreeUndoWithAd = useCallback(async (): Promise<boolean> => {
+    setAdPlaying(true);
+    try {
+      const earned = await platformManager.requestRewardedAd("free-undo-perk");
+      if (earned && undoRef.current) {
+        undo();
+        return true;
+      } else if (earned) {
+        // Remove the latest tile
+        const current = gameRef.current;
+        if (current.tiles.length > 2) {
+          const kept = current.tiles.slice(0, current.tiles.length - 1);
+          commitGame({ ...current, tiles: kept });
+          playUndoSound(audioEnabled);
+          return true;
+        }
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      setAdPlaying(false);
+    }
+  }, [audioEnabled, commitGame, undo]);
+
+  const switchPlatform = useCallback(async (id: PlatformId) => {
+    await platformManager.switchPlatform(id);
+    setPlatform(platformManager.metadata);
+  }, []);
 
   return {
     ...game,
@@ -445,5 +563,11 @@ export const use2048Game = () => {
     winDialogOpen,
     dismissWinDialog: () => setWinDialogOpen(false),
     dailyTarget: DAILY_TARGET,
+    platform,
+    switchPlatform,
+    reviveGameWithAd,
+    getFreeUndoWithAd,
+    adPlaying,
+    toggleAudio: () => setAudioEnabled((prev) => !prev),
   };
 };
