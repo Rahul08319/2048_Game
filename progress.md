@@ -21,3 +21,8 @@ Original prompt: https://github.com/Rahul08319/twenty-forty-eight-dash.git - add
 
 - Refreshed the visual direction to a midnight-arcade treatment with improved hierarchy, score-panel depth, responsive decorative layers, and a clearer game title. Replaced the generic Lovable README with a project guide covering modes, controls, local setup, build, and Playables validation.
 - `git diff --check` passed. The prescribed Playwright game client remains unavailable because the `playwright` package is not installed in this workspace, so screenshot-based visual verification is still pending dependency restoration.
+
+2026-09-25
+
+- Restored the dependency set with the local pnpm store. `npm run build` succeeds (403,840-byte output) and `npm run lint` succeeds.
+- Verified the visual refresh in a real Playwright browser against this project on isolated port 4173: keyboard movement merged tiles and updated score/best score, Daily and Dash mode controls worked, Dash displayed a live timer, mobile portrait (390x844) rendered cleanly, and the wide landscape layout (1280x400) was corrected to prevent score-panel/board overlap. Browser console: 0 errors and 0 warnings.

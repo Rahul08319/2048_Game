@@ -139,7 +139,7 @@ All colors MUST be HSL.
 }
 
 .playable-board {
-  width: min(92vw, 64svh, 29rem);
+  width: min(92vw, 50svh, 29rem);
   container-type: inline-size;
   border: 1px solid hsl(0 0% 100% / 0.14);
   box-shadow: 0 22px 72px hsl(246 75% 4% / 0.56), inset 0 1px hsl(0 0% 100% / 0.08);
@@ -154,9 +154,9 @@ All colors MUST be HSL.
 @media (orientation: landscape) and (max-height: 640px) {
   .playable-shell {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-content: center;
-    gap: 0.75rem;
+    gap: clamp(0.75rem, 2vw, 2rem);
   }
 
   .playable-heading, .playable-instructions { display: none; }
@@ -164,8 +164,7 @@ All colors MUST be HSL.
   .playable-board { width: min(72svh, 56vw, 29rem); }
 
   .playable-scoreboard {
-    width: min(28vw, 13rem);
-    flex-direction: column;
+    width: min(52vw, 30rem);
   }
 }
 
