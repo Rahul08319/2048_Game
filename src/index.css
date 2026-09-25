@@ -2,178 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 250 70% 12%;
-    --foreground: 0 0% 98%;
-
-    --card: 250 50% 18%;
-    --card-foreground: 0 0% 98%;
-
-    --popover: 250 50% 18%;
-    --popover-foreground: 0 0% 98%;
-
-    --primary: 280 80% 60%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 240 60% 50%;
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 250 40% 25%;
-    --muted-foreground: 250 10% 70%;
-
-    --accent: 320 80% 55%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 250 30% 30%;
-    --input: 250 30% 30%;
-    --ring: 280 80% 60%;
-
-    --radius: 1rem;
-    
-    --tile-empty: 250 40% 20%;
-    --tile-2: 45 100% 70%;
-    --tile-4: 40 100% 65%;
-    --tile-8: 35 100% 60%;
-    --tile-16: 30 100% 55%;
-    --tile-32: 25 90% 50%;
-    --tile-64: 15 90% 50%;
-    --tile-128: 10 90% 50%;
-    --tile-256: 5 90% 50%;
-    --tile-512: 0 90% 50%;
-    --tile-1024: 350 90% 55%;
-    --tile-2048: 320 90% 55%;
-    
-    --gradient-bg: linear-gradient(135deg, hsl(280, 80%, 25%) 0%, hsl(240, 80%, 35%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(250, 50%, 18%) 0%, hsl(250, 50%, 22%) 100%);
-    
-    --shadow-tile: 0 4px 12px rgba(0, 0, 0, 0.3);
-    --shadow-glow: 0 0 30px rgba(168, 85, 247, 0.4);
-
-    --transition-smooth: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 45 35% 91%; --foreground: 152 33% 15%; --card: 43 41% 96%; --card-foreground: 152 33% 15%;
+    --popover: 43 41% 96%; --popover-foreground: 152 33% 15%; --primary: 153 42% 27%; --primary-foreground: 45 42% 96%;
+    --secondary: 43 32% 85%; --secondary-foreground: 152 33% 18%; --muted: 43 23% 82%; --muted-foreground: 151 15% 37%;
+    --accent: 35 67% 45%; --accent-foreground: 45 42% 96%; --destructive: 0 64% 42%; --destructive-foreground: 0 0% 100%;
+    --border: 151 18% 68%; --input: 151 18% 68%; --ring: 153 42% 27%; --radius: 0.9rem;
+    --tile-empty: 152 19% 30%; --tile-2: 43 65% 88%; --tile-4: 43 69% 78%; --tile-8: 38 74% 62%; --tile-16: 28 72% 54%;
+    --tile-32: 18 66% 48%; --tile-64: 7 62% 42%; --tile-128: 350 52% 39%; --tile-256: 334 45% 35%;
+    --tile-512: 308 34% 31%; --tile-1024: 271 30% 28%; --tile-2048: 153 42% 23%;
+    --sidebar-background: 45 35% 91%; --sidebar-foreground: 152 33% 15%; --sidebar-primary: 153 42% 27%;
+    --sidebar-primary-foreground: 45 42% 96%; --sidebar-accent: 43 32% 85%; --sidebar-accent-foreground: 152 33% 18%;
+    --sidebar-border: 151 18% 68%; --sidebar-ring: 153 42% 27%;
   }
-
-  .dark {
-    --background: 250 70% 12%;
-    --foreground: 0 0% 98%;
-  }
+  .dark { --background: 45 35% 91%; --foreground: 152 33% 15%; }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+  button, [role="button"] { -webkit-tap-highlight-color: transparent; }
 }
 
-.playable-shell {
-  min-height: 100svh;
-  padding: clamp(0.75rem, 3vw, 2rem);
-  isolation: isolate;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 50% -12%, hsl(283 88% 56% / 0.34), transparent 36rem),
-    radial-gradient(circle at 5% 92%, hsl(211 92% 56% / 0.18), transparent 34rem),
-    linear-gradient(145deg, hsl(239 46% 10%), hsl(252 54% 13%) 52%, hsl(231 48% 9%));
-}
-
-.playable-shell::before,
-.playable-shell::after {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  width: 30rem;
-  aspect-ratio: 1;
-  border: 1px solid hsl(0 0% 100% / 0.06);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.playable-shell::before { top: -21rem; right: -12rem; }
-.playable-shell::after { bottom: -23rem; left: -15rem; }
-
+.playable-shell { min-height: 100svh; padding: clamp(0.9rem, 3vw, 2rem); overflow: hidden; background-color: hsl(var(--background)); background-image: radial-gradient(hsl(153 22% 27% / 0.1) 0.7px, transparent 0.7px); background-size: 10px 10px; }
 .playable-heading { max-width: 29rem; }
-
-.playable-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.65rem;
-  color: hsl(285 94% 76%);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.playable-title {
-  margin: 0;
-  color: hsl(var(--foreground));
-  font-size: clamp(3rem, 8vw, 4.75rem);
-  font-weight: 900;
-  letter-spacing: -0.085em;
-  line-height: 0.9;
-  text-shadow: 0 0 38px hsl(278 100% 72% / 0.22);
-}
-
-.playable-title span {
-  color: hsl(281 92% 72%);
-  font-weight: 500;
-}
-
-.playable-board {
-  width: min(92vw, 50svh, 29rem);
-  container-type: inline-size;
-  border: 1px solid hsl(0 0% 100% / 0.14);
-  box-shadow: 0 22px 72px hsl(246 75% 4% / 0.56), inset 0 1px hsl(0 0% 100% / 0.08);
-}
-
-.playable-scoreboard > div:first-child > div > div,
-.playable-scoreboard > div:first-child > div:last-child > button,
-.playable-scoreboard > div:nth-child(2) {
-  box-shadow: 0 10px 26px hsl(243 62% 5% / 0.25);
-}
+.playable-eyebrow { margin-bottom: 0.35rem; color: hsl(var(--muted-foreground)); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; }
+.playable-title { margin: 0; color: hsl(var(--foreground)); font-family: Georgia, "Times New Roman", serif; font-size: clamp(3rem, 9.5vw, 4.7rem); font-weight: 700; letter-spacing: -0.075em; line-height: 0.9; }
+.playable-title span { color: hsl(var(--primary)); font-style: italic; }
+.playable-mode-copy { margin: 0.7rem 0 1.25rem; color: hsl(var(--muted-foreground)); font-size: clamp(0.83rem, 2.8vw, 0.98rem); }
+.playable-scoreboard { position: relative; z-index: 1; }
+.playable-readouts { padding: 0.2rem 0; }
+.playable-readout { border-bottom: 2px solid hsl(var(--primary) / 0.4); background: hsl(var(--card) / 0.68); }
+.playable-timer { border: 1px solid hsl(var(--accent) / 0.5); border-radius: 0.75rem; background: hsl(var(--card)); color: hsl(var(--accent)); }
+.playable-action-group { align-items: stretch; }
+.playable-action { border: 1px solid hsl(var(--primary) / 0.25) !important; border-radius: 0.75rem !important; background: hsl(var(--card)) !important; color: hsl(var(--foreground)) !important; box-shadow: 0 2px 0 hsl(var(--primary) / 0.2); }
+.playable-action:hover { background: hsl(var(--secondary)) !important; }
+.playable-new, .playable-new:hover { border: 1px solid hsl(153 43% 21%) !important; border-radius: 0.75rem !important; background: hsl(var(--primary)) !important; color: hsl(var(--primary-foreground)) !important; box-shadow: 0 3px 0 hsl(153 43% 18%); }
+.playable-new:active { transform: translateY(2px); box-shadow: 0 1px 0 hsl(153 43% 18%); }
+.playable-modes { overflow: hidden; border: 1px solid hsl(var(--primary) / 0.3); border-radius: 0.8rem; background: hsl(var(--card) / 0.7); }
+.playable-mode { min-height: 2.6rem; border-right: 1px solid hsl(var(--primary) / 0.2) !important; border-radius: 0 !important; color: hsl(var(--foreground)) !important; font-weight: 700 !important; }
+.playable-mode:last-child { border-right: 0 !important; }
+.playable-mode.bg-primary { background: hsl(var(--primary)) !important; color: hsl(var(--primary-foreground)) !important; }
+.playable-board { width: min(92vw, 52svh, 29rem); container-type: inline-size; margin-top: clamp(0.85rem, 2vw, 1.15rem); border: clamp(4px, 1vw, 7px) solid hsl(153 29% 22%); border-radius: clamp(1.15rem, 4vw, 1.8rem); background: hsl(153 31% 22%); box-shadow: 0 7px 0 hsl(153 29% 16%), 0 17px 26px hsl(151 25% 24% / 0.22), inset 0 0 0 1px hsl(44 42% 70% / 0.42); }
+.playable-cell { border: 1px solid hsl(44 32% 70% / 0.15); border-radius: 15%; background: hsl(var(--tile-empty)); box-shadow: inset 0 2px 5px hsl(153 36% 12% / 0.35); }
+.playable-tile { border: 1px solid hsl(43 62% 96% / 0.4); border-radius: 15%; font-family: Georgia, "Times New Roman", serif; box-shadow: 0 3px 0 hsl(153 32% 14% / 0.45), inset 0 1px 0 hsl(45 80% 98% / 0.48); }
+.playable-status span { border: 1px solid hsl(var(--accent) / 0.42); border-radius: 999px; background: hsl(var(--card) / 0.7); padding: 0.27rem 0.68rem; color: hsl(var(--accent)); font-weight: 650; }
+.playable-instructions { color: hsl(var(--muted-foreground)); }
+.playable-instructions p { letter-spacing: 0.01em; }
+.playable-instructions .text-primary { color: hsl(var(--primary)); }
+.playable-dialog { border: 1px solid hsl(var(--primary) / 0.28); border-radius: 1.25rem; background: hsl(var(--card)); box-shadow: 0 18px 48px hsl(153 33% 11% / 0.35); }
 
 @media (orientation: landscape) and (max-height: 640px) {
-  .playable-shell {
-    flex-direction: row;
-    flex-wrap: nowrap;
-    align-content: center;
-    gap: clamp(0.75rem, 2vw, 2rem);
-  }
-
+  .playable-shell { flex-direction: row; flex-wrap: nowrap; align-content: center; gap: clamp(0.75rem, 2vw, 2rem); }
   .playable-heading, .playable-instructions { display: none; }
-
-  .playable-board { width: min(72svh, 56vw, 29rem); }
-
-  .playable-scoreboard {
-    width: min(52vw, 30rem);
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-  }
+  .playable-board { width: min(72svh, 56vw, 29rem); margin-top: 0; }
+  .playable-scoreboard { width: min(52vw, 30rem); }
 }

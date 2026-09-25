@@ -5,7 +5,7 @@ import { ScoreBoard } from "@/components/ScoreBoard";
 import { GameOverModal } from "@/components/GameOverModal";
 import { Instructions } from "@/components/Instructions";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 
 const gestureDirection = (dx: number, dy: number): Direction | null => {
   if (Math.max(Math.abs(dx), Math.abs(dy)) < 40) return null;
@@ -76,15 +76,15 @@ const Index = () => {
   return (
     <main className="playable-shell flex flex-col items-center justify-center" onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}>
       <div className="playable-heading text-center">
-        <div className="playable-eyebrow"><Sparkles className="h-3.5 w-3.5" /> Tile fusion, reimagined</div>
+        <div className="playable-eyebrow">2048 puzzle</div>
         <h1 className="playable-title">2048 <span>Dash</span></h1>
-        <p className="mb-5 text-sm text-muted-foreground sm:mb-7 sm:text-base">{mode === "daily" ? `Reach ${dailyTarget} to extend your streak.` : mode === "dash" ? "Two minutes. Make every move count." : "A quiet puzzle. A bold high score."}</p>
+        <p className="playable-mode-copy">{mode === "daily" ? `Reach ${dailyTarget} to extend your streak.` : mode === "dash" ? "Two minutes. Make every move count." : "Merge, plan, and build your high score."}</p>
       </div>
       <ScoreBoard score={score} bestScore={bestScore} mode={mode} canUndo={canUndo} timeRemaining={timeRemaining} onRestart={restart} onUndo={undo} onModeChange={startMode} />
       <GameGrid tiles={tiles} />
-      <div className="mt-3 flex min-h-7 flex-wrap items-center justify-center gap-2 text-center text-sm" aria-live="polite">
-        {mode === "daily" && <span className="rounded-full bg-primary/20 px-3 py-1 text-primary">🔥 {dailyStreak}-day daily streak {dailyCompleted ? "· completed" : "· in progress"}</span>}
-        {achievementNotice && <span className="rounded-full bg-accent/20 px-3 py-1 text-accent">🏆 {achievementNotice}</span>}
+      <div className="playable-status mt-3 flex min-h-7 flex-wrap items-center justify-center gap-2 text-center text-sm" aria-live="polite">
+        {mode === "daily" && <span>{dailyStreak}-day daily streak {dailyCompleted ? "· completed" : "· in progress"}</span>}
+        {achievementNotice && <span>{achievementNotice}</span>}
       </div>
       <Instructions />
       {!ready && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(var(--background))]" role="status" aria-live="polite"><p className="text-lg font-semibold text-foreground">Loading game…</p></div>}
@@ -94,7 +94,7 @@ const Index = () => {
         </div>
       )}
       {gameOver && !pausedByHost && <GameOverModal score={score} mode={mode} dailyCompleted={dailyCompleted} onRestart={restart} />}
-      {hasWon && winDialogOpen && !gameOver && !pausedByHost && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="win-title"><div className="w-full max-w-md rounded-3xl bg-[hsl(var(--card))] p-8 text-center shadow-2xl"><Trophy className="mx-auto mb-3 h-10 w-10 text-primary" aria-hidden="true" /><h2 id="win-title" className="mb-3 text-4xl font-bold text-foreground">2048 reached!</h2><p className="mb-6 text-muted-foreground">You completed the classic target. Keep playing to improve your score, or start a new board.</p><div className="flex gap-3"><Button className="flex-1" onClick={dismissWinDialog}>Keep Playing</Button><Button className="flex-1" variant="secondary" onClick={restart}>New Game</Button></div></div></div>}
+      {hasWon && winDialogOpen && !gameOver && !pausedByHost && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="win-title"><div className="playable-dialog w-full max-w-md p-8 text-center"><Trophy className="mx-auto mb-3 h-10 w-10 text-primary" aria-hidden="true" /><h2 id="win-title" className="mb-3 text-4xl font-bold text-foreground">2048 reached!</h2><p className="mb-6 text-muted-foreground">You completed the classic target. Keep playing to improve your score, or start a new board.</p><div className="flex gap-3"><Button className="flex-1" onClick={dismissWinDialog}>Keep Playing</Button><Button className="flex-1" variant="secondary" onClick={restart}>New Game</Button></div></div></div>}
     </main>
   );
 };

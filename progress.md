@@ -26,3 +26,5 @@ Original prompt: https://github.com/Rahul08319/twenty-forty-eight-dash.git - add
 
 - Restored the dependency set with the local pnpm store. `npm run build` succeeds (403,840-byte output) and `npm run lint` succeeds.
 - Verified the visual refresh in a real Playwright browser against this project on isolated port 4173: keyboard movement merged tiles and updated score/best score, Daily and Dash mode controls worked, Dash displayed a live timer, mobile portrait (390x844) rendered cleanly, and the wide landscape layout (1280x400) was corrected to prevent score-panel/board overlap. Browser console: 0 errors and 0 warnings.
+- Replaced the purple neon treatment with a game-first tactile puzzle-board design: warm paper background, forest-green board, compact in-game score readouts, practical mode selector and controls. The user explicitly requested that this remain a game rather than a marketing site.
+- Design QA passed after correcting low-contrast light-tile numerals. Verified browser interactions: keyboard move/Undo, Daily mode, Dash timer; no browser errors. See `design-qa.md` for the comparison record.

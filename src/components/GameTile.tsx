@@ -7,7 +7,7 @@ interface GameTileProps {
 
 const getTileColor = (value: number): string => {
   const colors: Record<number, string> = {
-    2: "bg-[hsl(var(--tile-2))] text-[hsl(var(--background))]", 4: "bg-[hsl(var(--tile-4))] text-[hsl(var(--background))]",
+    2: "bg-[hsl(var(--tile-2))] text-[hsl(var(--foreground))]", 4: "bg-[hsl(var(--tile-4))] text-[hsl(var(--foreground))]",
     8: "bg-[hsl(var(--tile-8))] text-white", 16: "bg-[hsl(var(--tile-16))] text-white",
     32: "bg-[hsl(var(--tile-32))] text-white", 64: "bg-[hsl(var(--tile-64))] text-white",
     128: "bg-[hsl(var(--tile-128))] text-white", 256: "bg-[hsl(var(--tile-256))] text-white",
@@ -26,7 +26,7 @@ const getFontSize = (value: number): string => {
 export const GameTile = ({ tile }: GameTileProps) => (
   <div
     className={cn(
-      "flex h-full w-full items-center justify-center rounded-[16%] font-bold shadow-lg transition-all duration-150",
+      "playable-tile flex h-full w-full items-center justify-center font-bold transition-all duration-150",
       getTileColor(tile.value), getFontSize(tile.value), tile.isNew && "animate-tile-appear", tile.isMerged && "animate-tile-merge",
     )}
     style={{ gridRowStart: tile.position.row + 1, gridColumnStart: tile.position.col + 1 }}
