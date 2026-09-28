@@ -22,26 +22,24 @@
   button, [role="button"] { -webkit-tap-highlight-color: transparent; }
 }
 
-.playable-shell { min-height: 100svh; padding: clamp(0.9rem, 3vw, 2rem); overflow: hidden; background-color: hsl(var(--background)); background-image: radial-gradient(hsl(153 22% 27% / 0.1) 0.7px, transparent 0.7px); background-size: 10px 10px; }
-.playable-heading { max-width: 29rem; }
-.playable-eyebrow { margin-bottom: 0.35rem; color: hsl(var(--muted-foreground)); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; }
-.playable-title { margin: 0; color: hsl(var(--foreground)); font-family: Georgia, "Times New Roman", serif; font-size: clamp(3rem, 9.5vw, 4.7rem); font-weight: 700; letter-spacing: -0.075em; line-height: 0.9; }
-.playable-title span { color: hsl(var(--primary)); font-style: italic; }
-.playable-mode-copy { margin: 0.7rem 0 1.25rem; color: hsl(var(--muted-foreground)); font-size: clamp(0.83rem, 2.8vw, 0.98rem); }
+.playable-shell { min-height: 100svh; padding: clamp(0.75rem, 2vw, 1.4rem); overflow: hidden; background: hsl(var(--background)); }
+.playable-heading { display: flex; align-items: baseline; justify-content: space-between; width: min(96vw, 29rem); margin-bottom: 0.35rem; padding: 0 0.2rem; }
+.playable-title { margin: 0; color: hsl(var(--foreground)); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: clamp(1.75rem, 7vw, 2.5rem); font-weight: 900; letter-spacing: -0.08em; line-height: 1; }
+.playable-mode-label { color: hsl(var(--muted-foreground)); font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
 .playable-scoreboard { position: relative; z-index: 1; }
-.playable-readouts { padding: 0.2rem 0; }
-.playable-readout { border-bottom: 2px solid hsl(var(--primary) / 0.4); background: hsl(var(--card) / 0.68); }
+.playable-readouts { padding: 0; }
+.playable-readout { border: 1px solid hsl(var(--primary) / 0.24); border-radius: 0.65rem; background: hsl(var(--card)); }
 .playable-timer { border: 1px solid hsl(var(--accent) / 0.5); border-radius: 0.75rem; background: hsl(var(--card)); color: hsl(var(--accent)); }
 .playable-action-group { align-items: stretch; }
 .playable-action { border: 1px solid hsl(var(--primary) / 0.25) !important; border-radius: 0.75rem !important; background: hsl(var(--card)) !important; color: hsl(var(--foreground)) !important; box-shadow: 0 2px 0 hsl(var(--primary) / 0.2); }
 .playable-action:hover { background: hsl(var(--secondary)) !important; }
 .playable-new, .playable-new:hover { border: 1px solid hsl(153 43% 21%) !important; border-radius: 0.75rem !important; background: hsl(var(--primary)) !important; color: hsl(var(--primary-foreground)) !important; box-shadow: 0 3px 0 hsl(153 43% 18%); }
 .playable-new:active { transform: translateY(2px); box-shadow: 0 1px 0 hsl(153 43% 18%); }
-.playable-modes { overflow: hidden; border: 1px solid hsl(var(--primary) / 0.3); border-radius: 0.8rem; background: hsl(var(--card) / 0.7); }
+.playable-modes { overflow: hidden; border: 1px solid hsl(var(--primary) / 0.3); border-radius: 0.65rem; background: hsl(var(--card)); }
 .playable-mode { min-height: 2.6rem; border-right: 1px solid hsl(var(--primary) / 0.2) !important; border-radius: 0 !important; color: hsl(var(--foreground)) !important; font-weight: 700 !important; }
 .playable-mode:last-child { border-right: 0 !important; }
 .playable-mode.bg-primary { background: hsl(var(--primary)) !important; color: hsl(var(--primary-foreground)) !important; }
-.playable-board { width: min(92vw, 52svh, 29rem); container-type: inline-size; margin-top: clamp(0.85rem, 2vw, 1.15rem); border: clamp(4px, 1vw, 7px) solid hsl(153 29% 22%); border-radius: clamp(1.15rem, 4vw, 1.8rem); background: hsl(153 31% 22%); box-shadow: 0 7px 0 hsl(153 29% 16%), 0 17px 26px hsl(151 25% 24% / 0.22), inset 0 0 0 1px hsl(44 42% 70% / 0.42); }
+.playable-board { width: min(96vw, 58svh, 31rem); container-type: inline-size; margin-top: clamp(0.6rem, 1.5vw, 0.9rem); border: clamp(4px, 1vw, 7px) solid hsl(153 29% 22%); border-radius: clamp(1rem, 3vw, 1.45rem); background: hsl(153 31% 22%); box-shadow: 0 7px 0 hsl(153 29% 16%), 0 14px 22px hsl(151 25% 24% / 0.18), inset 0 0 0 1px hsl(44 42% 70% / 0.42); }
 .playable-cell { border: 1px solid hsl(44 32% 70% / 0.15); border-radius: 15%; background: hsl(var(--tile-empty)); box-shadow: inset 0 2px 5px hsl(153 36% 12% / 0.35); }
 .playable-tile { border: 1px solid hsl(43 62% 96% / 0.4); border-radius: 15%; font-family: Georgia, "Times New Roman", serif; box-shadow: 0 3px 0 hsl(153 32% 14% / 0.45), inset 0 1px 0 hsl(45 80% 98% / 0.48); }
 .playable-status span { border: 1px solid hsl(var(--accent) / 0.42); border-radius: 999px; background: hsl(var(--card) / 0.7); padding: 0.27rem 0.68rem; color: hsl(var(--accent)); font-weight: 650; }
@@ -53,6 +51,6 @@
 @media (orientation: landscape) and (max-height: 640px) {
   .playable-shell { flex-direction: row; flex-wrap: nowrap; align-content: center; gap: clamp(0.75rem, 2vw, 2rem); }
   .playable-heading, .playable-instructions { display: none; }
-  .playable-board { width: min(72svh, 56vw, 29rem); margin-top: 0; }
+  .playable-board { width: min(76svh, 58vw, 31rem); margin-top: 0; }
   .playable-scoreboard { width: min(52vw, 30rem); }
 }

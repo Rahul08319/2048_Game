@@ -76,9 +76,8 @@ const Index = () => {
   return (
     <main className="playable-shell flex flex-col items-center justify-center" onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}>
       <div className="playable-heading text-center">
-        <div className="playable-eyebrow">2048 puzzle</div>
-        <h1 className="playable-title">2048 <span>Dash</span></h1>
-        <p className="playable-mode-copy">{mode === "daily" ? `Reach ${dailyTarget} to extend your streak.` : mode === "dash" ? "Two minutes. Make every move count." : "Merge, plan, and build your high score."}</p>
+        <h1 className="playable-title">2048</h1>
+        <div className="playable-mode-label" aria-live="polite">{mode === "daily" ? `Daily · ${dailyTarget} target` : mode === "dash" ? "Dash · 2:00" : "Classic"}</div>
       </div>
       <ScoreBoard score={score} bestScore={bestScore} mode={mode} canUndo={canUndo} timeRemaining={timeRemaining} onRestart={restart} onUndo={undo} onModeChange={startMode} />
       <GameGrid tiles={tiles} />
