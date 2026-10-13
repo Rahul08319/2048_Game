@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import type { Tile } from "@/hooks/use2048Game";
+import type { ObstaclePosition } from "@/lib/levels/types";
 import { GameTile } from "./GameTile";
 import { ParticleBurst } from "./ParticleBurst";
-import { Zap } from "lucide-react";
+import { Zap, Shield } from "lucide-react";
 
 interface GameGridProps {
   tiles: Tile[];
   shake?: boolean;
   combo?: number;
+  obstacles?: ObstaclePosition[];
 }
 
-export const GameGrid = ({ tiles, shake, combo = 0 }: GameGridProps) => {
+export const GameGrid = ({ tiles, shake, combo = 0, obstacles = [] }: GameGridProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [particleTrigger, setParticleTrigger] = useState<{
     x: number;
@@ -75,8 +77,24 @@ export const GameGrid = ({ tiles, shake, combo = 0 }: GameGridProps) => {
         ))}
       </div>
 
-      {/* Live Sliding Game Tiles Layer */}
+      {/* Obstacle Stone Blocks Layer */}
       <div className="absolute inset-[3.25%] pointer-events-none">
+        {obstacles.map((obs, idx) => (
+          <div
+            key={`obs-${idx}`}
+            className="absolute left-0 top-0 w-[22.5625%] h-[22.5625%] rounded-[22%] bg-gradient-to-br from-zinc-800 via-zinc-900 to-black border-2 border-zinc-700/80 shadow-2xl flex flex-col items-center justify-center z-10"
+            style={{
+              transform: `translate3d(calc(${obs.col} * 114.404%), calc(${obs.row} * 114.404%), 0)`,
+            }}
+          >
+            <Shield className="w-5 h-5 text-zinc-500 drop-shadow" />
+            <span className="text-[8px] uppercase tracking-wider font-extrabold text-zinc-500 mt-0.5">
+              Block
+            </span>
+          </div>
+        ))}
+
+        {/* Live Sliding Game Tiles Layer */}
         {tiles.map((tile) => (
           <GameTile key={tile.id} tile={tile} />
         ))}

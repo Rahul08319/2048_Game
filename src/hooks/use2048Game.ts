@@ -17,6 +17,8 @@ import {
   stopGameAudio,
   triggerHaptic,
 } from "@/lib/gameAudio";
+import { getLevelConfig, TOTAL_LEVELS } from "@/lib/levels/levelDatabase";
+import type { LevelConfig, LevelProgressMap, ObstaclePosition } from "@/lib/levels/types";
 
 export type Tile = {
   id: number;
@@ -27,7 +29,20 @@ export type Tile = {
 };
 
 export type Direction = "up" | "down" | "left" | "right";
-export type GameMode = "classic" | "daily" | "dash";
+export type GameMode = "classic" | "daily" | "dash" | "levels";
+
+export const defaultLevelProgress = (): LevelProgressMap => {
+  const map: LevelProgressMap = {};
+  for (let i = 1; i <= TOTAL_LEVELS; i++) {
+    map[i] = {
+      unlocked: i === 1,
+      stars: 0,
+      highScore: 0,
+      completed: false,
+    };
+  }
+  return map;
+};
 
 type GameState = {
   mode: GameMode;
@@ -44,10 +59,19 @@ type GameState = {
   lastDailyCompletion: string | null;
   timeRemaining: number | null;
   dashEndsAt: number | null;
+  currentLevel: number;
+  movesRemaining: number | null;
+  levelProgress: LevelProgressMap;
+  levelWon: boolean;
+  levelFailed: boolean;
+  levelStarsEarned: number;
 };
 
-type SavedGame = Omit<GameState, "dashEndsAt"> & { version: 2 };
-type UndoState = Pick<GameState, "tiles" | "score" | "nextId" | "gameOver" | "hasWon" | "rngState">;
+type SavedGame = Omit<GameState, "dashEndsAt"> & { version: number };
+type UndoState = Pick<
+  GameState,
+  "tiles" | "score" | "nextId" | "gameOver" | "hasWon" | "rngState" | "movesRemaining" | "levelWon" | "levelFailed"
+>;
 
 const GRID_SIZE = 4;
 const DASH_SECONDS = 120;
@@ -67,8 +91,11 @@ function seededRandom(state: number) {
   return { value: nextState / 4294967296, nextState };
 }
 
-function emptyPositions(tiles: Tile[]) {
-  const occupied = new Set(tiles.map((tile) => `${tile.position.row},${tile.position.col}`));
+function emptyPositions(tiles: Tile[], obstacles: ObstaclePosition[] = []) {
+  const occupied = new Set([
+    ...tiles.map((tile) => `${tile.position.row},${tile.position.col}`),
+    ...obstacles.map((obs) => `${obs.row},${obs.col}`),
+  ]);
   const empty: Array<{ row: number; col: number }> = [];
   for (let row = 0; row < GRID_SIZE; row += 1) {
     for (let col = 0; col < GRID_SIZE; col += 1) {
@@ -78,8 +105,14 @@ function emptyPositions(tiles: Tile[]) {
   return empty;
 }
 
-function addRandomTile(tiles: Tile[], nextId: number, mode: GameMode, rngState: number) {
-  const empty = emptyPositions(tiles);
+function addRandomTile(
+  tiles: Tile[],
+  nextId: number,
+  mode: GameMode,
+  rngState: number,
+  obstacles: ObstaclePosition[] = []
+) {
+  const empty = emptyPositions(tiles, obstacles);
   if (!empty.length) return { tiles, nextId, rngState };
   const first = mode === "daily" ? seededRandom(rngState) : { value: Math.random(), nextState: rngState };
   const second = mode === "daily" ? seededRandom(first.nextState) : { value: Math.random(), nextState: rngState };
@@ -91,23 +124,102 @@ function addRandomTile(tiles: Tile[], nextId: number, mode: GameMode, rngState: 
   };
 }
 
-function canMove(tiles: Tile[]) {
-  if (tiles.length < GRID_SIZE * GRID_SIZE) return true;
-  const cells = new Map(tiles.map((tile) => [`${tile.position.row},${tile.position.col}`, tile.value]));
-  for (let row = 0; row < GRID_SIZE; row += 1) {
-    for (let col = 0; col < GRID_SIZE; col += 1) {
-      const value = cells.get(`${row},${col}`);
-      if (value === cells.get(`${row + 1},${col}`) || value === cells.get(`${row},${col + 1}`)) return true;
+function partitionLine(coordinates: Array<{ row: number; col: number }>, obstacleSet: Set<string>) {
+  const segments: Array<Array<{ row: number; col: number }>> = [];
+  let currentSegment: Array<{ row: number; col: number }> = [];
+
+  for (const coord of coordinates) {
+    if (obstacleSet.has(`${coord.row},${coord.col}`)) {
+      if (currentSegment.length > 0) {
+        segments.push(currentSegment);
+        currentSegment = [];
+      }
+    } else {
+      currentSegment.push(coord);
     }
+  }
+  if (currentSegment.length > 0) {
+    segments.push(currentSegment);
+  }
+  return segments;
+}
+
+function applyMove(
+  game: { tiles: Tile[]; nextId: number },
+  direction: Direction,
+  obstacles: ObstaclePosition[] = []
+) {
+  const byPosition = new Map(game.tiles.map((tile) => [`${tile.position.row},${tile.position.col}`, tile]));
+  const obstacleSet = new Set(obstacles.map((obs) => `${obs.row},${obs.col}`));
+  const tiles: Tile[] = [];
+  let nextId = game.nextId;
+  let gained = 0;
+  let moved = false;
+  let maxMergeValue = 0;
+
+  for (let line = 0; line < GRID_SIZE; line += 1) {
+    const coordinates = lineCoordinates(direction, line);
+    const segments = partitionLine(coordinates, obstacleSet);
+
+    for (const segment of segments) {
+      const existing = segment
+        .map(({ row, col }) => byPosition.get(`${row},${col}`))
+        .filter((tile): tile is Tile => Boolean(tile));
+
+      for (let source = 0, destination = 0; source < existing.length; destination += 1) {
+        const current = existing[source];
+        const merge = existing[source + 1]?.value === current.value;
+        const target = segment[destination];
+        const nextVal = merge ? current.value * 2 : current.value;
+        if (merge && nextVal > maxMergeValue) {
+          maxMergeValue = nextVal;
+        }
+        const movedTile: Tile = {
+          ...current,
+          id: merge ? nextId++ : current.id,
+          value: nextVal,
+          position: target,
+          isNew: false,
+          isMerged: merge,
+        };
+        if (merge) {
+          gained += movedTile.value;
+          source += 2;
+        } else {
+          source += 1;
+        }
+        if (merge || current.position.row !== target.row || current.position.col !== target.col) {
+          moved = true;
+        }
+        tiles.push(movedTile);
+      }
+    }
+  }
+  return { tiles, nextId, gained, moved, maxMergeValue };
+}
+
+function canMove(tiles: Tile[], obstacles: ObstaclePosition[] = []) {
+  for (const dir of ["up", "down", "left", "right"] as Direction[]) {
+    if (applyMove({ tiles, nextId: 0 }, dir, obstacles).moved) return true;
   }
   return false;
 }
 
-function createGame(mode: GameMode, bestScore: number, streak = 0, lastDailyCompletion: string | null = null): GameState {
+function createGame(
+  mode: GameMode,
+  bestScore: number,
+  streak = 0,
+  lastDailyCompletion: string | null = null,
+  level = 1,
+  progress: LevelProgressMap = defaultLevelProgress()
+): GameState {
   const dailyDate = mode === "daily" ? todayKey() : null;
   const initialRng = dailyDate ? hashDate(dailyDate) : 0;
-  const first = addRandomTile([], 0, mode, initialRng);
-  const second = addRandomTile(first.tiles, first.nextId, mode, first.rngState);
+  const levelConfig = getLevelConfig(level);
+  const obstacles = mode === "levels" ? levelConfig.obstacles : [];
+
+  const first = addRandomTile([], 0, mode, initialRng, obstacles);
+  const second = addRandomTile(first.tiles, first.nextId, mode, first.rngState, obstacles);
   return {
     mode,
     tiles: second.tiles,
@@ -123,6 +235,12 @@ function createGame(mode: GameMode, bestScore: number, streak = 0, lastDailyComp
     lastDailyCompletion,
     timeRemaining: mode === "dash" ? DASH_SECONDS : null,
     dashEndsAt: mode === "dash" ? Date.now() + DASH_SECONDS * 1000 : null,
+    currentLevel: level,
+    movesRemaining: mode === "levels" ? levelConfig.moveLimit : null,
+    levelProgress: progress,
+    levelWon: false,
+    levelFailed: false,
+    levelStarsEarned: 0,
   };
 }
 
@@ -135,44 +253,6 @@ function lineCoordinates(direction: Direction, line: number) {
     if (direction === "down") coordinates.push({ row: GRID_SIZE - 1 - offset, col: line });
   }
   return coordinates;
-}
-
-function applyMove(game: GameState, direction: Direction) {
-  const byPosition = new Map(game.tiles.map((tile) => [`${tile.position.row},${tile.position.col}`, tile]));
-  const tiles: Tile[] = [];
-  let nextId = game.nextId;
-  let gained = 0;
-  let moved = false;
-  let maxMergeValue = 0;
-
-  for (let line = 0; line < GRID_SIZE; line += 1) {
-    const coordinates = lineCoordinates(direction, line);
-    const existing = coordinates.map(({ row, col }) => byPosition.get(`${row},${col}`)).filter((tile): tile is Tile => Boolean(tile));
-    for (let source = 0, destination = 0; source < existing.length; destination += 1) {
-      const current = existing[source];
-      const merge = existing[source + 1]?.value === current.value;
-      const target = coordinates[destination];
-      const nextVal = merge ? current.value * 2 : current.value;
-      if (merge && nextVal > maxMergeValue) {
-        maxMergeValue = nextVal;
-      }
-      const movedTile: Tile = {
-        ...current,
-        id: merge ? nextId++ : current.id,
-        value: nextVal,
-        position: target,
-        isNew: false,
-        isMerged: merge,
-      };
-      if (merge) {
-        gained += movedTile.value;
-        source += 2;
-      } else source += 1;
-      if (merge || current.position.row !== target.row || current.position.col !== target.col) moved = true;
-      tiles.push(movedTile);
-    }
-  }
-  return { tiles, nextId, gained, moved, maxMergeValue };
 }
 
 function currentDashSeconds(game: GameState) {
@@ -198,29 +278,60 @@ function isSavedGame(value: unknown): value is Partial<SavedGame> {
 }
 
 function hydrateGame(saved: Partial<SavedGame>): GameState {
-  const mode: GameMode = saved.mode === "daily" || saved.mode === "dash" ? saved.mode : "classic";
+  const mode: GameMode =
+    saved.mode === "daily" || saved.mode === "dash" || saved.mode === "levels"
+      ? saved.mode
+      : "classic";
   const timeRemaining = mode === "dash" ? Math.max(0, Math.floor(saved.timeRemaining ?? DASH_SECONDS)) : null;
+  const currentLevel =
+    typeof saved.currentLevel === "number" && saved.currentLevel >= 1 && saved.currentLevel <= TOTAL_LEVELS
+      ? Math.floor(saved.currentLevel)
+      : 1;
+  const levelConfig = getLevelConfig(currentLevel);
+  const obstacles = mode === "levels" ? levelConfig.obstacles : [];
+  const levelProgress =
+    saved.levelProgress && typeof saved.levelProgress === "object"
+      ? { ...defaultLevelProgress(), ...saved.levelProgress }
+      : defaultLevelProgress();
+
+  const movesRemaining =
+    mode === "levels"
+      ? typeof saved.movesRemaining === "number"
+        ? Math.floor(saved.movesRemaining)
+        : levelConfig.moveLimit
+      : null;
+
   return {
     mode,
     tiles: (saved.tiles ?? []).map((tile) => ({ ...tile, isNew: false, isMerged: false })),
     score: Math.floor(saved.score ?? 0),
     bestScore: Math.max(Math.floor(saved.bestScore ?? 0), Math.floor(saved.score ?? 0)),
     nextId: Math.floor(saved.nextId ?? 0),
-    gameOver: Boolean(saved.gameOver) || !canMove(saved.tiles ?? []),
+    gameOver: Boolean(saved.gameOver) || !canMove(saved.tiles ?? [], obstacles),
     hasWon: Boolean(saved.hasWon) || (saved.tiles ?? []).some((tile) => tile.value >= 2048),
-    rngState: Number.isInteger(saved.rngState) ? saved.rngState as number : (mode === "daily" ? hashDate(saved.dailyDate ?? todayKey()) : 0),
+    rngState: Number.isInteger(saved.rngState)
+      ? (saved.rngState as number)
+      : mode === "daily"
+      ? hashDate(saved.dailyDate ?? todayKey())
+      : 0,
     dailyDate: mode === "daily" && typeof saved.dailyDate === "string" ? saved.dailyDate : null,
     dailyCompleted: Boolean(saved.dailyCompleted),
     dailyStreak: Math.max(0, Math.floor(saved.dailyStreak ?? 0)),
     lastDailyCompletion: typeof saved.lastDailyCompletion === "string" ? saved.lastDailyCompletion : null,
     timeRemaining,
     dashEndsAt: mode === "dash" && timeRemaining > 0 ? Date.now() + timeRemaining * 1000 : null,
+    currentLevel,
+    movesRemaining,
+    levelProgress,
+    levelWon: Boolean(saved.levelWon),
+    levelFailed: Boolean(saved.levelFailed),
+    levelStarsEarned: Math.max(0, Math.floor(saved.levelStarsEarned ?? 0)),
   };
 }
 
 function serializeGame(game: GameState): string {
   const { dashEndsAt: _, ...persisted } = game;
-  return JSON.stringify({ version: 2, ...persisted, timeRemaining: currentDashSeconds(game) } satisfies SavedGame);
+  return JSON.stringify({ version: 3, ...persisted, timeRemaining: currentDashSeconds(game) } satisfies SavedGame);
 }
 
 function snapshotForUndo(game: GameState): UndoState {
@@ -231,6 +342,9 @@ function snapshotForUndo(game: GameState): UndoState {
     gameOver: game.gameOver,
     hasWon: game.hasWon,
     rngState: game.rngState,
+    movesRemaining: game.movesRemaining,
+    levelWon: game.levelWon,
+    levelFailed: game.levelFailed,
   };
 }
 
@@ -407,20 +521,23 @@ export const use2048Game = () => {
 
   const move = useCallback((direction: Direction) => {
     const current = gameRef.current;
-    if (!ready || pausedRef.current || current.gameOver) return;
+    if (!ready || pausedRef.current || current.gameOver || current.levelWon || current.levelFailed) return;
     if (current.mode === "dash" && (currentDashSeconds(current) ?? 0) === 0) {
       tickDash();
       return;
     }
-    const result = applyMove(current, direction);
+
+    const levelConfig = getLevelConfig(current.currentLevel);
+    const obstacles = current.mode === "levels" ? levelConfig.obstacles : [];
+
+    const result = applyMove(current, direction, obstacles);
     if (!result.moved) return;
 
     undoRef.current = snapshotForUndo(current);
     setCanUndo(true);
-    const withRandomTile = addRandomTile(result.tiles, result.nextId, current.mode, current.rngState);
+    const withRandomTile = addRandomTile(result.tiles, result.nextId, current.mode, current.rngState, obstacles);
     const score = current.score + result.gained;
     const bestScore = Math.max(current.bestScore, score);
-    const isOver = !canMove(withRandomTile.tiles);
 
     // Arcade Effects
     if (result.gained > 0) {
@@ -441,6 +558,70 @@ export const use2048Game = () => {
       setCombo(0);
     }
 
+    // Moves remaining for level mode
+    const movesRemaining =
+      current.mode === "levels" && current.movesRemaining !== null
+        ? Math.max(0, current.movesRemaining - 1)
+        : null;
+
+    // Check level targets and win/loss
+    const reachedLevelTarget =
+      current.mode === "levels" && withRandomTile.tiles.some((tile) => tile.value >= levelConfig.targetTile);
+
+    let levelWon = current.levelWon;
+    let levelFailed = current.levelFailed;
+    let levelStarsEarned = current.levelStarsEarned;
+    let levelProgress = current.levelProgress;
+
+    if (reachedLevelTarget && !current.levelWon) {
+      levelWon = true;
+      const finalMoves = movesRemaining ?? 0;
+      if (finalMoves >= levelConfig.threeStarMovesRemaining) {
+        levelStarsEarned = 3;
+      } else if (finalMoves >= levelConfig.twoStarMovesRemaining) {
+        levelStarsEarned = 2;
+      } else {
+        levelStarsEarned = 1;
+      }
+
+      const prevProg = levelProgress[current.currentLevel] || {
+        unlocked: true,
+        stars: 0,
+        highScore: 0,
+        completed: false,
+      };
+      const updatedProgress: LevelProgressMap = {
+        ...levelProgress,
+        [current.currentLevel]: {
+          unlocked: true,
+          completed: true,
+          stars: Math.max(prevProg.stars, levelStarsEarned),
+          highScore: Math.max(prevProg.highScore, score),
+        },
+      };
+      if (current.currentLevel < TOTAL_LEVELS) {
+        const nextLvl = updatedProgress[current.currentLevel + 1] || {
+          unlocked: false,
+          stars: 0,
+          highScore: 0,
+          completed: false,
+        };
+        updatedProgress[current.currentLevel + 1] = { ...nextLvl, unlocked: true };
+      }
+      levelProgress = updatedProgress;
+      playWinSound(audioEnabled);
+      triggerHaptic("heavy");
+    } else if (current.mode === "levels" && !reachedLevelTarget && movesRemaining === 0) {
+      levelFailed = true;
+    }
+
+    const isBoardFullStuck = !canMove(withRandomTile.tiles, obstacles);
+    if (current.mode === "levels" && !levelWon && isBoardFullStuck) {
+      levelFailed = true;
+    }
+
+    const isOver = current.mode === "levels" ? levelFailed : isBoardFullStuck;
+
     let next: GameState = {
       ...current,
       tiles: withRandomTile.tiles,
@@ -451,6 +632,11 @@ export const use2048Game = () => {
       timeRemaining: currentDashSeconds(current),
       gameOver: isOver,
       hasWon: current.hasWon || withRandomTile.tiles.some((tile) => tile.value >= 2048),
+      movesRemaining,
+      levelWon,
+      levelFailed,
+      levelStarsEarned,
+      levelProgress,
     };
 
     if (next.mode === "daily" && !next.dailyCompleted && next.tiles.some((tile) => tile.value >= DAILY_TARGET)) {
@@ -461,13 +647,18 @@ export const use2048Game = () => {
       next = {
         ...next,
         dailyCompleted: true,
-        dailyStreak: previous === completedOn ? next.dailyStreak : previousTime && Math.round((currentTime - previousTime) / 86400000) === 1 ? next.dailyStreak + 1 : 1,
+        dailyStreak:
+          previous === completedOn
+            ? next.dailyStreak
+            : previousTime && Math.round((currentTime - previousTime) / 86400000) === 1
+            ? next.dailyStreak + 1
+            : 1,
         lastDailyCompletion: completedOn,
       };
       setAchievementNotice(`Daily target reached — ${next.dailyStreak}-day streak!`);
     }
 
-    if (!current.hasWon && next.hasWon) {
+    if (!current.hasWon && next.hasWon && next.mode !== "levels") {
       setWinDialogOpen(true);
       playWinSound(audioEnabled);
     }
@@ -479,7 +670,7 @@ export const use2048Game = () => {
       reportBestScore(bestScore);
     }
 
-    if (isOver) {
+    if (isOver || levelWon) {
       void maybeShowInterstitial();
     }
   }, [audioEnabled, commitGame, maybeShowInterstitial, ready, tickDash]);
@@ -508,11 +699,75 @@ export const use2048Game = () => {
     setCanUndo(false);
     setCombo(0);
     setAchievementNotice("");
-    commitGame(createGame(mode, current.bestScore, current.dailyStreak, current.lastDailyCompletion));
+    commitGame(createGame(mode, current.bestScore, current.dailyStreak, current.lastDailyCompletion, current.currentLevel, current.levelProgress));
     void maybeShowInterstitial();
   }, [commitGame, maybeShowInterstitial, ready]);
 
-  const restart = useCallback(() => startMode(gameRef.current.mode), [startMode]);
+  const startLevel = useCallback((lvl: number) => {
+    if (!ready || pausedRef.current) return;
+    const current = gameRef.current;
+    const safeLvl = Math.max(1, Math.min(TOTAL_LEVELS, Math.floor(lvl)));
+    undoRef.current = null;
+    setCanUndo(false);
+    setCombo(0);
+    setAchievementNotice("");
+    commitGame(
+      createGame(
+        "levels",
+        current.bestScore,
+        current.dailyStreak,
+        current.lastDailyCompletion,
+        safeLvl,
+        current.levelProgress
+      )
+    );
+    void maybeShowInterstitial();
+  }, [commitGame, maybeShowInterstitial, ready]);
+
+  const nextLevel = useCallback(() => {
+    const current = gameRef.current;
+    if (current.currentLevel < TOTAL_LEVELS) {
+      startLevel(current.currentLevel + 1);
+    }
+  }, [startLevel]);
+
+  const retryLevel = useCallback(() => {
+    const current = gameRef.current;
+    startLevel(current.currentLevel);
+  }, [startLevel]);
+
+  const restart = useCallback(() => {
+    const current = gameRef.current;
+    if (current.mode === "levels") {
+      startLevel(current.currentLevel);
+    } else {
+      startMode(current.mode);
+    }
+  }, [startLevel, startMode]);
+
+  const addExtraMovesWithAd = useCallback(async (): Promise<boolean> => {
+    setAdPlaying(true);
+    try {
+      const earned = await platformManager.requestRewardedAd("level-extra-moves");
+      if (earned) {
+        const current = gameRef.current;
+        const next: GameState = {
+          ...current,
+          movesRemaining: (current.movesRemaining ?? 0) + 5,
+          levelFailed: false,
+          gameOver: false,
+        };
+        commitGame(next);
+        setAchievementNotice("✨ +5 Extra Moves Granted!");
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      setAdPlaying(false);
+    }
+  }, [commitGame]);
 
   const reviveGameWithAd = useCallback(async (): Promise<boolean> => {
     setAdPlaying(true);
@@ -570,13 +825,24 @@ export const use2048Game = () => {
     setPlatform(platformManager.metadata);
   }, []);
 
+  const currentLevelConfig = getLevelConfig(game.currentLevel);
+
   return {
     ...game,
+    currentLevelConfig,
+    obstacles: game.mode === "levels" ? currentLevelConfig.obstacles : [],
+    targetTile: currentLevelConfig.targetTile,
     move,
     undo,
     canUndo,
     restart,
     startMode,
+    startLevel,
+    nextLevel,
+    retryLevel,
+    addExtraMovesWithAd,
+    dismissLevelComplete: () => commitGame({ ...gameRef.current, levelWon: false }),
+    dismissLevelFailed: () => commitGame({ ...gameRef.current, levelFailed: false }),
     ready,
     pausedByHost,
     pauseMenuOpen,

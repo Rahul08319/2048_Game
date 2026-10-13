@@ -28,7 +28,7 @@ export const BottomControls = ({
         onClick={canUndo ? onUndo : onRewardedUndo}
         disabled={adPlaying}
         variant="secondary"
-        className={`flex-1 h-12 rounded-2xl font-bold text-xs sm:text-sm border transition-all active:scale-[0.97] shadow-lg ${
+        className={`flex-1 h-12 rounded-2xl font-bold text-xs sm:text-sm border transition-transform duration-100 ease-out active:scale-95 shadow-lg ${
           canUndo
             ? "bg-white/[0.08] hover:bg-white/[0.14] border-white/10 text-white"
             : "bg-white/[0.04] hover:bg-white/[0.09] border-white/5 text-zinc-400"
@@ -59,7 +59,7 @@ export const BottomControls = ({
       {/* Restart Button */}
       <Button
         onClick={onRestart}
-        className="flex-1 h-12 rounded-2xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white border border-primary/40 shadow-lg shadow-primary/20 transition-all active:scale-[0.97]"
+        className="flex-1 h-12 rounded-2xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white border border-primary/40 shadow-lg shadow-primary/20 transition-transform duration-100 ease-out active:scale-95"
         title="Restart Board (R)"
       >
         <RotateCcw className="w-4 h-4 mr-2" />

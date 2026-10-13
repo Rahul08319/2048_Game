@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Play, RotateCcw, Volume2, VolumeX, Layers, Keyboard, Smartphone, Trophy, Sparkles } from "lucide-react";
+import { Play, RotateCcw, Volume2, VolumeX, Layers, Keyboard, Smartphone, Star, Sparkles } from "lucide-react";
 import type { GameMode } from "@/hooks/use2048Game";
 import type { PlatformMetadata } from "@/lib/platform/types";
 
@@ -15,6 +15,7 @@ interface PauseMenuModalProps {
   onToggleAudio: () => void;
   platform: PlatformMetadata;
   onOpenPlatformSelector: () => void;
+  onOpenLevelSelect?: () => void;
 }
 
 export const PauseMenuModal = ({
@@ -28,6 +29,7 @@ export const PauseMenuModal = ({
   onToggleAudio,
   platform,
   onOpenPlatformSelector,
+  onOpenLevelSelect,
 }: PauseMenuModalProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,7 +42,7 @@ export const PauseMenuModal = ({
             Game Paused
           </DialogTitle>
           <DialogDescription className="text-xs text-zinc-400">
-            Session saved. Adjust settings or switch game modes.
+            Session saved. Adjust settings, select levels, or change mode.
           </DialogDescription>
         </DialogHeader>
 
@@ -57,6 +59,21 @@ export const PauseMenuModal = ({
             <Play className="w-5 h-5 mr-2 fill-white" />
             Resume Playing
           </Button>
+
+          {/* 100-Level Campaign Map Launcher Button */}
+          {onOpenLevelSelect && (
+            <Button
+              onClick={() => {
+                onOpenChange(false);
+                onOpenLevelSelect();
+              }}
+              size="lg"
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-sm rounded-2xl h-12 shadow-lg shadow-orange-500/20 transition-all active:scale-[0.98]"
+            >
+              <Star className="w-4 h-4 mr-2 fill-white" />
+              100-Level Campaign Map
+            </Button>
+          )}
 
           {/* Secondary Action: Restart */}
           <Button
@@ -77,8 +94,8 @@ export const PauseMenuModal = ({
             <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
               Select Game Mode
             </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {(["classic", "daily", "dash"] as GameMode[]).map((m) => (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {(["levels", "classic", "daily", "dash"] as GameMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => {
@@ -91,7 +108,7 @@ export const PauseMenuModal = ({
                       : "bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08]"
                   }`}
                 >
-                  {m === "dash" ? "2-Min Dash" : m}
+                  {m === "levels" ? "100 Levels" : m === "dash" ? "2m Dash" : m}
                 </button>
               ))}
             </div>

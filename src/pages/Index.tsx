@@ -6,6 +6,9 @@ import { BottomControls } from "@/components/BottomControls";
 import { PauseMenuModal } from "@/components/PauseMenuModal";
 import { GameOverModal } from "@/components/GameOverModal";
 import { PlatformSelectorModal } from "@/components/PlatformSelectorModal";
+import { LevelSelectModal } from "@/components/LevelSelectModal";
+import { LevelCompleteModal } from "@/components/LevelCompleteModal";
+import { LevelFailedModal } from "@/components/LevelFailedModal";
 import { Button } from "@/components/ui/button";
 import { Trophy, Play } from "lucide-react";
 
@@ -47,17 +50,36 @@ const Index = () => {
     scoreGains,
     combo,
     shake,
+    currentLevel,
+    currentLevelConfig,
+    movesRemaining,
+    obstacles,
+    targetTile,
+    levelProgress,
+    levelWon,
+    levelFailed,
+    levelStarsEarned,
+    startLevel,
+    nextLevel,
+    retryLevel,
+    addExtraMovesWithAd,
+    dismissLevelComplete,
+    dismissLevelFailed,
   } = use2048Game();
 
   const [platformSelectorOpen, setPlatformSelectorOpen] = useState(false);
+  const [levelSelectOpen, setLevelSelectOpen] = useState(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const mouseStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       // Don't intercept if an overlay or modal is active
-      if (pauseMenuOpen) {
-        if (event.key === "Escape") setPauseMenuOpen(false);
+      if (pauseMenuOpen || levelSelectOpen || levelWon || levelFailed) {
+        if (event.key === "Escape") {
+          if (pauseMenuOpen) setPauseMenuOpen(false);
+          if (levelSelectOpen) setLevelSelectOpen(false);
+        }
         return;
       }
 

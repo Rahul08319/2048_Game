@@ -1,4 +1,4 @@
-import { Pause, Trophy, Volume2, VolumeX, Timer, Flame, Sparkles } from "lucide-react";
+import { Pause, Trophy, Volume2, VolumeX, Timer, Flame, Sparkles, Target, Footprints } from "lucide-react";
 import type { GameMode } from "@/hooks/use2048Game";
 
 interface FloatingScore {
@@ -14,9 +14,13 @@ interface GameHUDProps {
   dailyStreak: number;
   audioEnabled: boolean;
   scoreGains: FloatingScore[];
+  currentLevel?: number;
+  targetTile?: number;
+  movesRemaining?: number | null;
   onOpenPause: () => void;
   onToggleAudio: () => void;
   onModeChange: (mode: GameMode) => void;
+  onOpenLevelSelect?: () => void;
 }
 
 const formatTime = (seconds: number) =>
@@ -30,9 +34,12 @@ export const GameHUD = ({
   dailyStreak,
   audioEnabled,
   scoreGains,
+  currentLevel = 1,
+  targetTile = 64,
+  movesRemaining,
   onOpenPause,
   onToggleAudio,
-  onModeChange,
+  onOpenLevelSelect,
 }: GameHUDProps) => {
   return (
     <header className="w-full max-w-[440px] flex items-center justify-between gap-2 px-1 select-none z-10">
@@ -60,37 +67,63 @@ export const GameHUD = ({
           )}
         </button>
 
-        {/* Mode & Streak Pill */}
-        <button
-          onClick={onOpenPause}
-          className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-bold text-white/90 backdrop-blur-xl transition-all active:scale-95"
-        >
-          {mode === "dash" ? (
-            <>
-              <Timer className="w-3.5 h-3.5 text-accent animate-pulse" />
-              <span className="tabular-nums font-mono text-accent">
-                {timeRemaining !== null ? formatTime(timeRemaining) : "2:00"}
-              </span>
-            </>
-          ) : mode === "daily" ? (
-            <>
-              <Flame className="w-3.5 h-3.5 text-orange-400" />
-              <span>{dailyStreak}d Streak</span>
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span className="capitalize">Classic</span>
-            </>
-          )}
-        </button>
+        {/* Mode / Level Pill */}
+        {mode === "levels" ? (
+          <button
+            onClick={onOpenLevelSelect}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-primary/20 hover:bg-primary/30 border border-primary/40 text-xs font-black text-white backdrop-blur-xl transition-all active:scale-95 shadow-lg shadow-primary/20"
+            title="Open 100-Level Campaign Map"
+          >
+            <span className="text-primary font-black">Lvl {currentLevel}</span>
+            <span className="w-1 h-1 rounded-full bg-white/40" />
+            <Target className="w-3.5 h-3.5 text-amber-300" />
+            <span className="text-amber-300 font-bold">{targetTile}</span>
+          </button>
+        ) : (
+          <button
+            onClick={onOpenPause}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-bold text-white/90 backdrop-blur-xl transition-all active:scale-95"
+          >
+            {mode === "dash" ? (
+              <>
+                <Timer className="w-3.5 h-3.5 text-accent animate-pulse" />
+                <span className="tabular-nums font-mono text-accent">
+                  {timeRemaining !== null ? formatTime(timeRemaining) : "2:00"}
+                </span>
+              </>
+            ) : mode === "daily" ? (
+              <>
+                <Flame className="w-3.5 h-3.5 text-orange-400" />
+                <span>{dailyStreak}d Streak</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span className="capitalize">Classic</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
-      {/* Center: Title / Logo */}
+      {/* Center: Moves Counter for Level Mode or 2048 Title */}
       <div className="flex flex-col items-center">
-        <span className="text-xl sm:text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-white/90 to-primary/80 drop-shadow">
-          2048
-        </span>
+        {mode === "levels" && movesRemaining !== null ? (
+          <div
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-xl border text-xs font-black transition-all ${
+              movesRemaining <= 5
+                ? "bg-rose-500/20 border-rose-500/50 text-rose-400 animate-pulse"
+                : "bg-white/[0.06] border-white/10 text-zinc-300"
+            }`}
+          >
+            <Footprints className="w-3 h-3" />
+            <span className="tabular-nums">{movesRemaining} moves</span>
+          </div>
+        ) : (
+          <span className="text-xl sm:text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-white/90 to-primary/80 drop-shadow">
+            2048
+          </span>
+        )}
       </div>
 
       {/* Right: Arcade Score Widgets */}
